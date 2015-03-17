@@ -1,5 +1,6 @@
 package org.wildfly.boot.plugin;
 
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
@@ -76,12 +77,10 @@ public class AssembleMojo extends AbstractMojo {
         this.m2repoDir = new File(this.dir, "m2repo");
         this.modulesDir = new File(this.dir, "modules");
 
-        System.err.println("baseDIr: " + this.projectBaseDir);
-        System.err.println("buildDir: " + this.projectBuildDir);
-
         try {
             gatherModuleXmls();
             gatherDependencies();
+            addFeaturePackTxt();
             createZip();
         } catch (Exception e) {
             e.printStackTrace();
@@ -100,6 +99,20 @@ public class AssembleMojo extends AbstractMojo {
         } finally {
             out.close();
         }
+
+        org.apache.maven.artifact.DefaultArtifact zipArtifact = new org.apache.maven.artifact.DefaultArtifact(
+                this.project.getGroupId(),
+                this.project.getArtifactId(),
+                this.project.getVersion(),
+                "provided",
+                "zip",
+                "feature-pack",
+                new DefaultArtifactHandler("zip")
+        );
+
+        zipArtifact.setFile( zipFile );
+
+        this.project.addAttachedArtifact( zipArtifact );
     }
 
     private void walkZip(ZipOutputStream out, File file) throws IOException {
@@ -188,6 +201,14 @@ public class AssembleMojo extends AbstractMojo {
         }
     }
 
+    private void addFeaturePackTxt() throws IOException {
+        File txt = new File( projectBaseDir, "src/main/resources/feature-pack.txt" );
+        if ( txt.exists() ) {
+            copy( txt, new File( this.dir, "feature-pack.txt" ) );
+        }
+
+    }
+
     private static final String MODULES_PREFIX = "src/main/resources/module";
 
     private void gatherModuleXmls() throws IOException {
@@ -208,7 +229,7 @@ public class AssembleMojo extends AbstractMojo {
     }
 
     private File moduleXmlOutputFile(File in) {
-        String prefix = new File(MODULES_PREFIX).getAbsolutePath();
+        String prefix = new File(this.projectBaseDir, MODULES_PREFIX).getAbsolutePath();
 
         if (in.getAbsolutePath().startsWith(prefix)) {
             return new File(this.modulesDir, in.getAbsolutePath().substring(prefix.length() + 1));
@@ -232,7 +253,6 @@ public class AssembleMojo extends AbstractMojo {
                             int end = line.indexOf('}', start);
                             if (end > 0) {
                                 String artifact = line.substring(start + 2, end);
-                                //System.err.println( artifact );
                                 this.artifacts.add(new ArtifactSpec(artifact));
                             }
                         }
