@@ -153,11 +153,12 @@ public class AssembleMojo extends AbstractMojo {
         List<Dependency> dependencies = this.project.getDependencyManagement().getDependencies();
 
         for (Dependency each : dependencies) {
-            ArtifactSpec spec = new ArtifactSpec(each.getGroupId() + ":" + each.getArtifactId());
+            ArtifactSpec spec = new ArtifactSpec(each);
             if (!this.artifacts.contains(spec)) {
                 continue;
             }
             ArtifactRequest request = new ArtifactRequest();
+            System.err.println( "resolve -> " + each.getGroupId() + ":" + each.getArtifactId() + ":" + each.getVersion() + ":" + each.getClassifier() + ":" + each.getType() );
             DefaultArtifact artifact = new DefaultArtifact(each.getGroupId(), each.getArtifactId(), each.getClassifier(), each.getType(), each.getVersion());
             request.setArtifact(artifact);
             try {
@@ -176,7 +177,7 @@ public class AssembleMojo extends AbstractMojo {
     }
 
     private File mavenArtifactOutputFile(File baseDir, Artifact artifact) {
-        return new File(baseDir, artifact.getGroupId().replaceAll("\\.", "/") + "/" + artifact.getArtifactId() + "/" + artifact.getVersion() + "/" + artifact.getArtifactId() + "-" + artifact.getVersion() + "." + artifact.getExtension());
+        return new File(baseDir, artifact.getGroupId().replaceAll("\\.", "/") + "/" + artifact.getArtifactId() + "/" + artifact.getVersion() + "/" + artifact.getArtifactId() + "-" + artifact.getVersion() + ( artifact.getClassifier() == null || artifact.getClassifier().trim().equals( "" )? "" : "-" + artifact.getClassifier() ) + "." + artifact.getExtension());
     }
 
     private void copy(File src, File dest) throws IOException {
@@ -253,7 +254,9 @@ public class AssembleMojo extends AbstractMojo {
                             int end = line.indexOf('}', start);
                             if (end > 0) {
                                 String artifact = line.substring(start + 2, end);
-                                this.artifacts.add(new ArtifactSpec(artifact));
+                                ArtifactSpec spec = new ArtifactSpec(line.substring(start + 2, end));
+                                System.err.println( "spec: " + spec );
+                                this.artifacts.add(spec);
                             }
                         }
                     }
@@ -271,16 +274,27 @@ public class AssembleMojo extends AbstractMojo {
     private static class ArtifactSpec {
         public String groupId;
         public String artifactId;
+        public String classifier;
 
         public ArtifactSpec(String spec) {
             String[] parts = spec.split(":");
             this.groupId = parts[0];
             this.artifactId = parts[1];
+            if ( parts.length >= 4 ) {
+                this.classifier = parts[3];
+            }
         }
 
         public ArtifactSpec(Artifact artifact) {
             this.groupId = artifact.getGroupId();
             this.artifactId = artifact.getArtifactId();
+            this.classifier = artifact.getClassifier();
+        }
+
+        public ArtifactSpec(Dependency dependency) {
+            this.groupId = dependency.getGroupId();
+            this.artifactId = dependency.getArtifactId();
+            this.classifier = dependency.getClassifier();
         }
 
         public boolean equals(Object o) {
@@ -288,16 +302,22 @@ public class AssembleMojo extends AbstractMojo {
                 return false;
             }
 
-            return (this.groupId.equals(((ArtifactSpec) o).groupId) && this.artifactId.equals(((ArtifactSpec) o).artifactId));
+            if ( (this.groupId.equals(((ArtifactSpec) o).groupId) && this.artifactId.equals(((ArtifactSpec) o).artifactId)) ) {
+                if ( this.classifier == null ) {
+                    return ((ArtifactSpec) o).classifier == null;
+                }
+                return this.classifier.equals( ((ArtifactSpec) o).classifier);
+            }
+            return false;
         }
 
         @Override
         public int hashCode() {
-            return this.groupId.hashCode() / 2 + this.artifactId.hashCode() / 2;
+            return this.groupId.hashCode() / 3 + this.artifactId.hashCode() / 3 + ( this.classifier == null ? 0 : this.classifier.hashCode() );
         }
 
         public String toString() {
-            return this.groupId + ":" + this.artifactId;
+            return this.groupId + ":" + this.artifactId + "::" + this.classifier;
         }
     }
 }
