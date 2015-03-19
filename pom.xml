@@ -25,10 +25,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.wildfly.boot</groupId>
-    <artifactId>wildfly-boot-feature-pack-plugin</artifactId>
+    <artifactId>wildfly-boot-fraction-plugin</artifactId>
 
-    <name>WildFly Boot: Feature Pack Plugin</name>
-    <description>WildFly Boot: Feature PackPlugin</description>
+    <name>WildFly Boot: Fraction Plugin</name>
+    <description>WildFly Boot: Fraction Plugin</description>
     <version>1.0.0.Alpha1-SNAPSHOT</version>
 
     <packaging>maven-plugin</packaging>
