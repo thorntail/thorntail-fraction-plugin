@@ -1,7 +1,21 @@
 package org.wildfly.boot.plugin;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import javax.inject.Inject;
+
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
-import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -11,22 +25,11 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.impl.ArtifactResolver;
-
-import javax.inject.Inject;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
-//import org.eclipse.aether.repository.NoLocalRepositoryManagerException;
 
 /**
  * @author Bob McWhirter
+ * @author Ken Finnigan
  */
 @Mojo(
         name = "generate",
@@ -39,45 +42,49 @@ public class GenerateMojo extends AbstractMojo {
     @Component
     private MavenProject project;
 
-    @Parameter(defaultValue = "${basedir}")
-    private String projectBaseDir;
-
     @Parameter(defaultValue = "${project.build.directory}")
     private String projectBuildDir;
 
-    @Parameter(defaultValue = "${project.build.outputDirectory}" )
+    @Parameter(defaultValue = "${project.build.outputDirectory}")
     private String projectOutputDir;
 
-    @Parameter(defaultValue = "${localRepository}")
-    private ArtifactRepository localRepository;
+    @Parameter(defaultValue = "${root-module}")
+    private String rootModule;
 
-    @Parameter(defaultValue = "${repositorySystemSession}")
-    private RepositorySystemSession session;
+    @Parameter(defaultValue = "${extra-modules}")
+    private String extraModules;
+
+    @Parameter(defaultValue = "${fraction-module}")
+    private String fractionModuleName;
 
     @Inject
     private ArtifactResolver resolver;
 
     private File featurePackDir;
 
+    private String className;
+    private String packageNameWithTrailingDot;
+
     private static final String PREFIX = "wildfly-boot-";
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-
-        String artifactId = project.getArtifactId();
-        if (!artifactId.startsWith(PREFIX)) {
-            throw new MojoFailureException("This plugin only works with wildfly-boot-* artifacts");
+        if (rootModule == null || rootModule.length() == 0) {
+            throw new MojoFailureException("This plugin requires the 'root-module' property to be set.");
         }
 
-        String simpleName = artifactId.substring(PREFIX.length());
-        String packageName = packagize(simpleName);
+        determineClassName();
 
-        generateServiceLoaderDescriptor(packageName, simpleName);
-        generateFeaturePack(simpleName);
+        if (fractionModuleName == null || fractionModuleName.length() == 0) {
+            throw new MojoFailureException("This plugin requires the 'fraction-module' property to be set.");
+        }
+
+        generateServiceLoaderDescriptor();
+        generateFeaturePack();
     }
 
-    private void generateFeaturePack(String name) throws MojoFailureException {
-        generateModule(name);
+    private void generateFeaturePack() throws MojoFailureException {
+        generateModule();
         createZip();
     }
 
@@ -90,12 +97,12 @@ public class GenerateMojo extends AbstractMojo {
             ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile));
 
             try {
-                walkZip(out, new File( this.projectBuildDir, "fraction" ) );
+                walkZip(out, new File(this.projectBuildDir, "fraction"));
             } finally {
                 out.close();
             }
         } catch (IOException e) {
-            throw new MojoFailureException( "Unable to create fraction.zip file", e );
+            throw new MojoFailureException("Unable to create fraction.zip file", e);
 
         }
 
@@ -147,9 +154,9 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
-    private void generateModule(String name) throws MojoFailureException {
-        this.featurePackDir = new File( this.projectBuildDir, "fraction" );
-        File dir = new File( this.featurePackDir, "modules/system/layers/base/org/wildfly/boot/" + name + "/main");
+    private void generateModule() throws MojoFailureException {
+        this.featurePackDir = new File(this.projectBuildDir, "fraction");
+        File dir = new File(this.featurePackDir, "modules/system/layers/base/" + this.project.getGroupId().replaceAll("\\.", "/") + "/" + fractionModuleName + "/main");
         dir.mkdirs();
 
         File moduleXml = new File(dir, "module.xml");
@@ -158,18 +165,17 @@ public class GenerateMojo extends AbstractMojo {
 
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(moduleXml));
 
-            out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"org.wildfly.boot." + name + "\">\n");
+            out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"" + this.project.getGroupId() + "." + fractionModuleName + "\">\n");
             out.write("  <resources>\n");
-            out.write("    <artifact name=\"${org.wildfly.boot:wildfly-boot-" + name + "}\"/>\n");
+            out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + "}\"/>\n");
             out.write("  </resources>\n");
             out.write("  <dependencies>\n");
             out.write("    <module name=\"org.wildfly.boot.container\"/>\n");
-            out.write("    <module name=\"" + this.project.getProperties().getProperty("root-module") + "\"/>\n");
+            out.write("    <module name=\"" + this.rootModule + "\"/>\n");
 
-            String extraModules = this.project.getProperties().getProperty( "extra-modules" );
-            if ( extraModules != null ) {
-                String[] names = extraModules.split("[\\s,]+");
-                for ( int i = 0 ; i < names.length ; ++i ) {
+            if (this.extraModules != null) {
+                String[] names = this.extraModules.split("[\\s,]+");
+                for (int i = 0; i < names.length; ++i) {
                     out.write("    <module name=\"" + names[i].trim() + "\"/>\n");
                 }
             }
@@ -187,8 +193,7 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
-    private void generateServiceLoaderDescriptor(String packageName, String simpleName) throws MojoFailureException {
-        String actualClassName = determineActualClassName(packageName, simpleName);
+    private void generateServiceLoaderDescriptor() throws MojoFailureException {
         File dir = new File(this.projectBuildDir, "classes/META-INF/services");
         dir.mkdirs();
 
@@ -198,7 +203,7 @@ public class GenerateMojo extends AbstractMojo {
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(services));
 
             try {
-                out.write( actualClassName + "\n" );
+                out.write(this.packageNameWithTrailingDot + this.className + "\n");
             } finally {
                 out.close();
             }
@@ -207,52 +212,58 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
-    private String determineActualClassName(String packageName, String simpleName) throws MojoFailureException {
-        File dir = new File( this.projectOutputDir, packageName.replaceAll( "\\.", "/" ) );
+    private void determineClassName() throws MojoFailureException {
+        try {
+            Files.walkFileTree((new File(this.projectOutputDir)).toPath(), new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                    if (dir.getFileName().toString().equals("META-INF")) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
 
-        simpleName = simpleName.replaceAll( "-", "" );
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().endsWith("SubsystemDefaulter.class")) {
+                        // Strip out .class from name
+                        String name = file.getFileName().toString();
+                        setClassName(name.substring(0, name.length() - 6));
 
-        File[] children = dir.listFiles();
+                        String packageName = "";
+                        Path current = file.getParent();
+                        while (true) {
+                            if (current.getFileName().toString().equals("classes")) {
+                                setPackage(packageName);
+                                break;
+                            }
 
-        for ( int i = 0 ; i < children.length ; ++i ) {
-            String childName = children[i].getName();
-            if ( childName.equalsIgnoreCase(simpleName + "SubsystemDefaulter.class") ) {
-                return packageName + "." + childName.substring( 0, childName.length() - 6 );
-            }
+                            packageName = current.getFileName().toString() + "." + packageName;
+                            current = current.getParent();
+                        }
+                        return FileVisitResult.TERMINATE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw new MojoFailureException("Unable to determine SubsystemDefaulter class", e);
         }
 
-        throw new MojoFailureException( "Unable to determine SubsystemDefaulter class" );
-    }
-
-    /*
-    private String camelize(String name) {
-        char[] chars = name.toCharArray();
-
-        StringBuffer camel = new StringBuffer();
-
-        boolean start = true;
-
-        for (int i = 0; i < chars.length; ++i) {
-            if (start) {
-                camel.append(Character.toUpperCase(chars[i]));
-                start = false;
-                continue;
-            }
-
-            if (chars[i] == '-') {
-                start = true;
-                continue;
-            }
-
-            camel.append(chars[i]);
+        if (this.className == null || this.packageNameWithTrailingDot == null) {
+            throw new MojoFailureException("Unable to determine SubsystemDefaulter class");
         }
-
-        return camel.toString();
-    }
-    */
-
-    private String packagize(String name) {
-        return "org.wildfly.boot." + name.replaceAll("-", ".");
     }
 
+    private void setClassName(String className) {
+        this.className = className;
+        String artifactId = this.project.getArtifactId();
+        if (this.fractionModuleName == null && artifactId.startsWith(PREFIX)) {
+            this.fractionModuleName = artifactId.substring(PREFIX.length());
+        }
+    }
+
+    private void setPackage(String name) {
+        this.packageNameWithTrailingDot = name;
+    }
 }
