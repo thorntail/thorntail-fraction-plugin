@@ -1,4 +1,4 @@
-package org.wildfly.boot.plugin;
+package org.wildfly.swarm.plugin;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -65,9 +65,8 @@ public class GenerateMojo extends AbstractMojo {
     private String className;
     private String packageNameWithTrailingDot;
 
-    private static final String PREFIX = "wildfly-boot-";
+    private static final String PREFIX = "wildfly-swarm-";
 
-    @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (rootModule == null || rootModule.length() == 0) {
             throw new MojoFailureException("This plugin requires the 'root-module' property to be set.");
@@ -170,7 +169,7 @@ public class GenerateMojo extends AbstractMojo {
             out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + "}\"/>\n");
             out.write("  </resources>\n");
             out.write("  <dependencies>\n");
-            out.write("    <module name=\"org.wildfly.boot.container\"/>\n");
+            out.write("    <module name=\"org.wildfly.swarm.container\"/>\n");
             out.write("    <module name=\"" + this.rootModule + "\"/>\n");
 
             if (this.extraModules != null) {
@@ -197,7 +196,7 @@ public class GenerateMojo extends AbstractMojo {
         File dir = new File(this.projectBuildDir, "classes/META-INF/services");
         dir.mkdirs();
 
-        File services = new File(dir, "org.wildfly.boot.container.SubsystemDefaulter");
+        File services = new File(dir, "org.wildfly.swarm.container.SubsystemDefaulter");
 
         try {
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(services));
