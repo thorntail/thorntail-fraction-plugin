@@ -3,6 +3,7 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.file.FileVisitResult;
@@ -10,12 +11,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import javax.inject.Inject;
 
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -54,6 +57,9 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${extra-modules}")
     private String extraModules;
 
+    @Parameter(defaultValue = "${export-modules}")
+    private String exportModules;
+
     @Parameter(defaultValue = "${fraction-module}")
     private String fractionModuleName;
 
@@ -80,7 +86,63 @@ public class GenerateMojo extends AbstractMojo {
 
         generateServiceLoaderDescriptor();
         generateFeaturePack();
+        generateFractionReferenceForJar();
+        generateFeaturePackReferenceForJar();
     }
+
+    private void generateFractionReferenceForJar() throws MojoFailureException {
+        File reference = new File( this.projectOutputDir, "wildfly-swarm-fraction.gav" );
+
+        try {
+            FileWriter out = new FileWriter(reference);
+
+            try {
+                out.write(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":zip:fraction:" + this.project.getVersion() + "\n");
+            } finally {
+                out.close();
+            }
+        } catch (IOException e) {
+            throw new MojoFailureException( "unable to create fraction reference for jar", e );
+        }
+    }
+
+    private void generateFeaturePackReferenceForJar() throws MojoFailureException {
+        String featurePack = this.project.getProperties().getProperty("feature-pack");
+        if ( featurePack == null ) {
+            return;
+        }
+
+        String[] parts = featurePack.split(":");
+        List<Dependency> deps = this.project.getDependencyManagement().getDependencies();
+
+        Dependency featurePackDep = null;
+        for ( Dependency each : deps ) {
+            if ( each.getGroupId().equals( parts[0] ) && each.getArtifactId().equals( parts[1] ) && each.getType().equals( "zip" ) ) {
+                getLog().info( "Using feature-pack: " + each );
+                featurePackDep = each;
+                break;
+            }
+        }
+
+        if ( featurePackDep == null ) {
+            throw new MojoFailureException( "Unable to determine feature-pack: " + featurePack );
+        }
+
+        File reference = new File( this.projectOutputDir, "wildfly-swarm-feature-pack.gav" );
+
+        try {
+            FileWriter out = new FileWriter(reference);
+
+            try {
+                out.write( featurePackDep.getGroupId() + ":" + featurePackDep.getArtifactId() + ":zip:" + featurePackDep.getVersion() + "\n" );
+            } finally {
+                out.close();
+            }
+        } catch (IOException e) {
+            throw new MojoFailureException( "unable to create feature-pack reference for jar", e );
+        }
+    }
+
 
     private void generateFeaturePack() throws MojoFailureException {
         generateModule();
@@ -176,6 +238,13 @@ public class GenerateMojo extends AbstractMojo {
                 String[] names = this.extraModules.split("[\\s,]+");
                 for (int i = 0; i < names.length; ++i) {
                     out.write("    <module name=\"" + names[i].trim() + "\"/>\n");
+                }
+            }
+
+            if (this.exportModules != null) {
+                String[] names = this.exportModules.split("[\\s,]+");
+                for (int i = 0; i < names.length; ++i) {
+                    out.write("    <module name=\"" + names[i].trim() + "\" export=\"true\"/>\n");
                 }
             }
             out.write("  </dependencies>\n");
