@@ -265,7 +265,7 @@ public class GenerateMojo extends AbstractMojo {
         File dir = new File(this.projectBuildDir, "classes/META-INF/services");
         dir.mkdirs();
 
-        File services = new File(dir, "org.wildfly.swarm.container.SubsystemDefaulter");
+        File services = new File(dir, "org.wildfly.swarm.container.FractionDefaulter");
 
         try {
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(services));
@@ -293,7 +293,7 @@ public class GenerateMojo extends AbstractMojo {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().endsWith("SubsystemDefaulter.class")) {
+                    if (file.getFileName().toString().endsWith("FractionDefaulter.class")) {
                         // Strip out .class from name
                         String name = file.getFileName().toString();
                         setClassName(name.substring(0, name.length() - 6));
@@ -315,11 +315,11 @@ public class GenerateMojo extends AbstractMojo {
                 }
             });
         } catch (IOException e) {
-            throw new MojoFailureException("Unable to determine SubsystemDefaulter class", e);
+            throw new MojoFailureException("Unable to determine FractionDefaulter class", e);
         }
 
         if (this.className == null || this.packageNameWithTrailingDot == null) {
-            throw new MojoFailureException("Unable to determine SubsystemDefaulter class");
+            throw new MojoFailureException("Unable to determine FractionDefaulter class");
         }
     }
 
