@@ -40,9 +40,9 @@
     <packaging>maven-plugin</packaging>
 
     <scm>
-        <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm.git</connection>
-        <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm.git</developerConnection>
-        <url>https://github.com/wildfly-swarm/wildfly-swarm</url>
+        <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</connection>
+        <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</developerConnection>
+        <url>https://github.com/wildfly-swarm/wildfly-swarm-fraction-plugin</url>
     </scm>
 
     <build>
