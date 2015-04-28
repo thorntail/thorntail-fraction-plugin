@@ -51,22 +51,22 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}")
     private String projectOutputDir;
 
-    @Parameter(defaultValue = "${root-module}")
-    private String rootModule;
+    @Parameter(alias = "modules")
+    private String[] modules;
 
-    @Parameter(defaultValue = "${extra-modules}")
-    private String extraModules;
+    @Parameter(alias = "exports")
+    private String[] exports;
 
-    @Parameter(defaultValue = "${export-modules}")
-    private String exportModules;
+    @Parameter(alias="feature-pack")
+    private String featurePack;
 
-    @Parameter(defaultValue = "${fraction-module}")
+    @Parameter(alias="module-name", defaultValue = "${fraction-module}")
     private String fractionModuleName;
 
     @Inject
     private ArtifactResolver resolver;
 
-    private File featurePackDir;
+    private File fractionDir;
 
     private String className;
     private String packageNameWithTrailingDot;
@@ -74,8 +74,8 @@ public class GenerateMojo extends AbstractMojo {
     private static final String PREFIX = "wildfly-swarm-";
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-        if (rootModule == null || rootModule.length() == 0) {
-            throw new MojoFailureException("This plugin requires the 'root-module' property to be set.");
+        if (this.modules == null || this.modules.length == 0) {
+            throw new MojoFailureException("At least 1 module needs to be configured");
         }
 
         determineClassName();
@@ -91,7 +91,7 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     private void generateFractionReferenceForJar() throws MojoFailureException {
-        File reference = new File( this.projectOutputDir, "wildfly-swarm-fraction.gav" );
+        File reference = new File(this.projectOutputDir, "wildfly-swarm-fraction.gav");
 
         try {
             FileWriter out = new FileWriter(reference);
@@ -102,44 +102,42 @@ public class GenerateMojo extends AbstractMojo {
                 out.close();
             }
         } catch (IOException e) {
-            throw new MojoFailureException( "unable to create fraction reference for jar", e );
+            throw new MojoFailureException("unable to create fraction reference for jar", e);
         }
     }
 
     private void generateFeaturePackReferenceForJar() throws MojoFailureException {
-        String featurePack = this.project.getProperties().getProperty("feature-pack");
-        if ( featurePack == null ) {
+        if ( this.featurePack == null ) {
             return;
         }
-
-        String[] parts = featurePack.split(":");
+        String[] parts = this.featurePack.split(":");
         List<Dependency> deps = this.project.getDependencyManagement().getDependencies();
 
         Dependency featurePackDep = null;
-        for ( Dependency each : deps ) {
-            if ( each.getGroupId().equals( parts[0] ) && each.getArtifactId().equals( parts[1] ) && each.getType().equals( "zip" ) ) {
-                getLog().info( "Using feature-pack: " + each );
+        for (Dependency each : deps) {
+            if (each.getGroupId().equals(parts[0]) && each.getArtifactId().equals(parts[1]) && each.getType().equals("zip")) {
+                getLog().info("Using feature-pack: " + each);
                 featurePackDep = each;
                 break;
             }
         }
 
-        if ( featurePackDep == null ) {
-            throw new MojoFailureException( "Unable to determine feature-pack: " + featurePack );
+        if (featurePackDep == null) {
+            throw new MojoFailureException("Unable to determine feature-pack: " + featurePack);
         }
 
-        File reference = new File( this.projectOutputDir, "wildfly-swarm-feature-pack.gav" );
+        File reference = new File(this.projectOutputDir, "wildfly-swarm-feature-pack.gav");
 
         try {
             FileWriter out = new FileWriter(reference);
 
             try {
-                out.write( featurePackDep.getGroupId() + ":" + featurePackDep.getArtifactId() + ":zip:" + featurePackDep.getVersion() + "\n" );
+                out.write(featurePackDep.getGroupId() + ":" + featurePackDep.getArtifactId() + ":zip:" + featurePackDep.getVersion() + "\n");
             } finally {
                 out.close();
             }
         } catch (IOException e) {
-            throw new MojoFailureException( "unable to create feature-pack reference for jar", e );
+            throw new MojoFailureException("unable to create feature-pack reference for jar", e);
         }
     }
 
@@ -184,8 +182,8 @@ public class GenerateMojo extends AbstractMojo {
 
     private void walkZip(ZipOutputStream out, File file) throws IOException {
 
-        if (!file.equals(this.featurePackDir)) {
-            String zipPath = file.getAbsolutePath().substring(this.featurePackDir.getAbsolutePath().length() + 1);
+        if (!file.equals(this.fractionDir)) {
+            String zipPath = file.getAbsolutePath().substring(this.fractionDir.getAbsolutePath().length() + 1);
             if (file.isDirectory()) {
                 zipPath = zipPath + "/";
             }
@@ -216,41 +214,35 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     private void generateModule() throws MojoFailureException {
-        this.featurePackDir = new File(this.projectBuildDir, "fraction");
-        File dir = new File(this.featurePackDir, "modules/system/layers/base/" + this.project.getGroupId().replaceAll("\\.", "/") + "/" + fractionModuleName + "/main");
+        this.fractionDir = new File(this.projectBuildDir, "fraction");
+        File dir = new File(this.fractionDir, "modules/system/layers/base/" + this.project.getGroupId().replaceAll("\\.", "/") + "/" + fractionModuleName + "/main");
         dir.mkdirs();
 
         File moduleXml = new File(dir, "module.xml");
 
-        try {
 
+        try {
             OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(moduleXml));
 
-            out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"" + this.project.getGroupId() + "." + fractionModuleName + "\">\n");
-            out.write("  <resources>\n");
-            out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + "}\"/>\n");
-            out.write("  </resources>\n");
-            out.write("  <dependencies>\n");
-            out.write("    <module name=\"org.wildfly.swarm.container\"/>\n");
-            out.write("    <module name=\"" + this.rootModule + "\"/>\n");
-
-            if (this.extraModules != null) {
-                String[] names = this.extraModules.split("[\\s,]+");
-                for (int i = 0; i < names.length; ++i) {
-                    out.write("    <module name=\"" + names[i].trim() + "\"/>\n");
-                }
-            }
-
-            if (this.exportModules != null) {
-                String[] names = this.exportModules.split("[\\s,]+");
-                for (int i = 0; i < names.length; ++i) {
-                    out.write("    <module name=\"" + names[i].trim() + "\" export=\"true\"/>\n");
-                }
-            }
-            out.write("  </dependencies>\n");
-            out.write("</module>\n");
-
             try {
+                out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"" + this.project.getGroupId() + "." + fractionModuleName + "\">\n");
+                out.write("  <resources>\n");
+                out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + "}\"/>\n");
+                out.write("  </resources>\n");
+                out.write("  <dependencies>\n");
+                out.write("    <module name=\"org.wildfly.swarm.container\"/>\n");
+
+                for (int i = 0; i < this.modules.length; ++i) {
+                    out.write("    <module name=\"" + this.modules[i].trim() + "\"/>\n");
+                }
+
+                if (this.exports != null) {
+                    for (int i = 0; i < this.exports.length; ++i) {
+                        out.write("    <module name=\"" + this.exports[i].trim() + "\" export=\"true\"/>\n");
+                    }
+                }
+                out.write("  </dependencies>\n");
+                out.write("</module>\n");
 
             } finally {
                 out.close();
@@ -262,6 +254,10 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     private void generateServiceLoaderDescriptor() throws MojoFailureException {
+        if ( this.className == null ) {
+            return;
+        }
+        
         File dir = new File(this.projectBuildDir, "classes/META-INF/services");
         dir.mkdirs();
 
@@ -318,9 +314,9 @@ public class GenerateMojo extends AbstractMojo {
             throw new MojoFailureException("Unable to determine FractionDefaulter class", e);
         }
 
-        if (this.className == null || this.packageNameWithTrailingDot == null) {
-            throw new MojoFailureException("Unable to determine FractionDefaulter class");
-        }
+        //if (this.className == null || this.packageNameWithTrailingDot == null) {
+            //throw new MojoFailureException("Unable to determine FractionDefaulter class");
+        //}
     }
 
     private void setClassName(String className) {
