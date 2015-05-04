@@ -1,19 +1,23 @@
 package org.wildfly.swarm.plugin;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Collections;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+import java.util.Map;
 
 import javax.inject.Inject;
 
@@ -33,6 +37,7 @@ import org.eclipse.aether.impl.ArtifactResolver;
 /**
  * @author Bob McWhirter
  * @author Ken Finnigan
+ * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
 @Mojo(
         name = "generate",
@@ -51,6 +56,9 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}")
     private String projectOutputDir;
 
+    @Parameter(readonly = true, defaultValue = "${project.build.sourceEncoding}")
+    private String encoding;
+
     @Parameter(alias = "modules")
     private String[] modules;
 
@@ -66,10 +74,8 @@ public class GenerateMojo extends AbstractMojo {
     @Inject
     private ArtifactResolver resolver;
 
-    private File fractionDir;
-
     private String className;
-    private String packageNameWithTrailingDot;
+    private String packageName;
 
     private static final String PREFIX = "wildfly-swarm-";
 
@@ -78,39 +84,41 @@ public class GenerateMojo extends AbstractMojo {
             throw new MojoFailureException("At least 1 module needs to be configured");
         }
 
+        // Set the charset for writing files, default to UTF-8
+        final Charset charset = (encoding == null ? StandardCharsets.UTF_8 : Charset.forName(encoding));
+
         determineClassName();
 
         if (fractionModuleName == null || fractionModuleName.length() == 0) {
             throw new MojoFailureException("This plugin requires the 'fraction-module' property to be set.");
         }
 
-        generateServiceLoaderDescriptor();
-        generateFeaturePack();
-        generateFractionReferenceForJar();
-        generateFeaturePackReferenceForJar();
+        generateServiceLoaderDescriptor(charset);
+        generateFeaturePack(charset);
+        generateFractionReferenceForJar(charset);
+        generateFeaturePackReferenceForJar(charset);
     }
 
-    private void generateFractionReferenceForJar() throws MojoFailureException {
-        File reference = new File(this.projectOutputDir, "wildfly-swarm-fraction.gav");
-
-        try {
-            FileWriter out = new FileWriter(reference);
-
-            try {
-                out.write(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":zip:fraction:" + this.project.getVersion() + "\n");
-            } finally {
-                out.close();
-            }
+    private void generateFractionReferenceForJar(final Charset charset) throws MojoFailureException {
+        final Path reference = Paths.get(this.projectOutputDir, "wildfly-swarm-fraction.gav");
+        try (final BufferedWriter out = Files.newBufferedWriter(reference, charset)) {
+            out.write(project.getGroupId());
+            out.write(':');
+            out.write(project.getArtifactId());
+            out.write(":zip:fraction:");
+            out.write(project.getVersion());
+            out.write('\n');
         } catch (IOException e) {
             throw new MojoFailureException("unable to create fraction reference for jar", e);
         }
     }
 
-    private void generateFeaturePackReferenceForJar() throws MojoFailureException {
+    private void generateFeaturePackReferenceForJar(final Charset charset) throws MojoFailureException {
         if ( this.featurePack == null ) {
             return;
         }
         String[] parts = this.featurePack.split(":");
+        // TODO (jrp) using the dependency management doesn't seem correct, it should likely use the explicit dependencies
         List<Dependency> deps = this.project.getDependencyManagement().getDependencies();
 
         Dependency featurePackDep = null;
@@ -126,40 +134,34 @@ public class GenerateMojo extends AbstractMojo {
             throw new MojoFailureException("Unable to determine feature-pack: " + featurePack);
         }
 
-        File reference = new File(this.projectOutputDir, "wildfly-swarm-feature-pack.gav");
+        final Path reference = Paths.get(this.projectOutputDir, "wildfly-swarm-feature-pack.gav");
 
-        try {
-            FileWriter out = new FileWriter(reference);
-
-            try {
-                out.write(featurePackDep.getGroupId() + ":" + featurePackDep.getArtifactId() + ":zip:" + featurePackDep.getVersion() + "\n");
-            } finally {
-                out.close();
-            }
+        try (final BufferedWriter out = Files.newBufferedWriter(reference, charset)){
+            out.write(featurePackDep.getGroupId());
+            out.write(':');
+            out.write(featurePackDep.getArtifactId());
+            out.write(":zip:");
+            out.write(featurePackDep.getVersion());
+            out.write('\n');
         } catch (IOException e) {
             throw new MojoFailureException("unable to create feature-pack reference for jar", e);
         }
     }
 
 
-    private void generateFeaturePack() throws MojoFailureException {
-        generateModule();
+    private void generateFeaturePack(final Charset charset) throws MojoFailureException {
+        generateModule(charset);
         createZip();
     }
 
 
     private void createZip() throws MojoFailureException {
-        File zipFile = new File(this.projectBuildDir, this.project.getArtifactId() + "-" + this.project.getVersion() + "-fraction.zip");
-        zipFile.getParentFile().mkdirs();
+        final Path zipFile = Paths.get(this.projectBuildDir, this.project.getArtifactId() + "-" + this.project.getVersion() + "-fraction.zip");
 
         try {
-            ZipOutputStream out = new ZipOutputStream(new FileOutputStream(zipFile));
-
-            try {
-                walkZip(out, new File(this.projectBuildDir, "fraction"));
-            } finally {
-                out.close();
-            }
+            Files.createDirectories(zipFile.getParent());
+            final Path dirTarget = Paths.get(this.projectBuildDir, "fraction");
+            compress(dirTarget, zipFile);
         } catch (IOException e) {
             throw new MojoFailureException("Unable to create fraction.zip file", e);
 
@@ -175,101 +177,76 @@ public class GenerateMojo extends AbstractMojo {
                 new DefaultArtifactHandler("zip")
         );
 
-        zipArtifact.setFile(zipFile);
+        zipArtifact.setFile(zipFile.toFile());
 
         this.project.addAttachedArtifact(zipArtifact);
     }
 
-    private void walkZip(ZipOutputStream out, File file) throws IOException {
+    private void generateModule(final Charset charset) throws MojoFailureException {
+        final Path dir = Paths.get(this.projectBuildDir, "fraction", "modules", "system", "layers", "base",
+                project.getGroupId().replace('.', File.separatorChar), fractionModuleName, "main");
 
-        if (!file.equals(this.fractionDir)) {
-            String zipPath = file.getAbsolutePath().substring(this.fractionDir.getAbsolutePath().length() + 1);
-            if (file.isDirectory()) {
-                zipPath = zipPath + "/";
-            }
-            out.putNextEntry(new ZipEntry(zipPath));
-        }
-
-        if (file.isDirectory()) {
-            File[] children = file.listFiles();
-
-            for (int i = 0; i < children.length; ++i) {
-                walkZip(out, children[i]);
-            }
-        } else {
-            FileInputStream in = new FileInputStream(file);
-
-            try {
-
-                byte[] buf = new byte[1024];
-                int len = -1;
-
-                while ((len = in.read(buf)) >= 0) {
-                    out.write(buf, 0, len);
-                }
-            } finally {
-                in.close();
-            }
-        }
-    }
-
-    private void generateModule() throws MojoFailureException {
-        this.fractionDir = new File(this.projectBuildDir, "fraction");
-        File dir = new File(this.fractionDir, "modules/system/layers/base/" + this.project.getGroupId().replaceAll("\\.", "/") + "/" + fractionModuleName + "/main");
-        dir.mkdirs();
-
-        File moduleXml = new File(dir, "module.xml");
+        final Path moduleXml = dir.resolve("module.xml");
 
 
         try {
-            OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(moduleXml));
+            Files.createDirectories(dir);
+            try (final BufferedWriter out = Files.newBufferedWriter(moduleXml, charset)){
+                // Main module element
+                out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"");
+                out.write(project.getGroupId());
+                out.write('.');
+                out.write(fractionModuleName);
+                out.write("\">\n");
 
-            try {
-                out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"" + this.project.getGroupId() + "." + fractionModuleName + "\">\n");
+                // Write the resources
                 out.write("  <resources>\n");
-                out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + "}\"/>\n");
+                out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion() + "}\"/>\n");
                 out.write("  </resources>\n");
+
+                // Write the dependencies
                 out.write("  <dependencies>\n");
                 out.write("    <module name=\"org.wildfly.swarm.container\"/>\n");
 
-                for (int i = 0; i < this.modules.length; ++i) {
-                    out.write("    <module name=\"" + this.modules[i].trim() + "\"/>\n");
+                for (final String module : modules) {
+                    out.write("    <module name=\"");
+                    out.write(module.trim());
+                    out.write("\"/>\n");
                 }
 
                 if (this.exports != null) {
-                    for (int i = 0; i < this.exports.length; ++i) {
-                        out.write("    <module name=\"" + this.exports[i].trim() + "\" export=\"true\"/>\n");
+                    for (final String export : this.exports) {
+                        out.write("    <module name=\"");
+                        out.write(export.trim());
+                        out.write("\" export=\"true\"/>\n");
                     }
                 }
                 out.write("  </dependencies>\n");
                 out.write("</module>\n");
 
-            } finally {
-                out.close();
             }
-
         } catch (IOException e) {
             throw new MojoFailureException("Unable to create module.xml", e);
         }
     }
 
-    private void generateServiceLoaderDescriptor() throws MojoFailureException {
+    private void generateServiceLoaderDescriptor(final Charset charset) throws MojoFailureException {
         if ( this.className == null ) {
             return;
         }
         
-        File dir = new File(this.projectBuildDir, "classes/META-INF/services");
-        dir.mkdirs();
-
-        File services = new File(dir, "org.wildfly.swarm.container.FractionDefaulter");
+        final Path dir = Paths.get(this.projectBuildDir, "classes/META-INF/services");
+        final Path services = dir.resolve("org.wildfly.swarm.container.FractionDefaulter");
 
         try {
-            OutputStreamWriter out = new OutputStreamWriter(new FileOutputStream(services));
-
-            try {
-                out.write(this.packageNameWithTrailingDot + this.className + "\n");
-            } finally {
-                out.close();
+            Files.createDirectories(dir);
+            try (final BufferedWriter out = Files.newBufferedWriter(services, charset)) {
+                out.write(packageName);
+                if (packageName.charAt(packageName.length() - 1) != '.') {
+                    out.write('.');
+                }
+                out.write(className);
+                out.write('\n');
             }
         } catch (IOException e) {
             throw new MojoFailureException("Unable to create services file: " + services, e);
@@ -278,11 +255,17 @@ public class GenerateMojo extends AbstractMojo {
 
     private void determineClassName() throws MojoFailureException {
         try {
-            Files.walkFileTree((new File(this.projectOutputDir)).toPath(), new SimpleFileVisitor<Path>() {
+            final Path classesDir = Paths.get(projectOutputDir);
+            Files.walkFileTree(classesDir, new SimpleFileVisitor<Path>() {
+                Path packageDir = Paths.get(".");
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                     if (dir.getFileName().toString().equals("META-INF")) {
                         return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    // Ignore the first directory
+                    if (!classesDir.getFileName().equals(dir.getFileName())) {
+                        packageDir = packageDir.resolve(dir.getFileName());
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -293,18 +276,7 @@ public class GenerateMojo extends AbstractMojo {
                         // Strip out .class from name
                         String name = file.getFileName().toString();
                         setClassName(name.substring(0, name.length() - 6));
-
-                        String packageName = "";
-                        Path current = file.getParent();
-                        while (true) {
-                            if (current.getFileName().toString().equals("classes")) {
-                                setPackage(packageName);
-                                break;
-                            }
-
-                            packageName = current.getFileName().toString() + "." + packageName;
-                            current = current.getParent();
-                        }
+                        setPackage(packageDir.normalize().toString().replace(File.separatorChar, '.'));
                         return FileVisitResult.TERMINATE;
                     }
                     return FileVisitResult.CONTINUE;
@@ -328,6 +300,39 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     private void setPackage(String name) {
-        this.packageNameWithTrailingDot = name;
+        String packageName = name;
+        if (packageName.charAt(0) == '.') {
+            packageName = packageName.substring(1);
+        }
+        this.packageName = packageName;
+    }
+
+    private static void compress(final Path in, final Path target) throws IOException {
+        // Environment for Zip FileSystem
+        final Map<String, String> env = Collections.singletonMap("create", "true");
+        // Creating the URI with a jar: prefix creates a zip file system
+        final URI targetUri = URI.create("jar:" + target.toUri());
+        try (final FileSystem zipFs = FileSystems.newFileSystem(targetUri, env)) {
+            // Walk the directory
+            Files.walkFileTree(in, new SimpleFileVisitor<Path>() {
+                Path currentZipDir = zipFs.getPath(zipFs.getSeparator());
+                @Override
+                public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) throws IOException {
+                    // Ignore the same base directory, e.g. fractions/modules should result in /modules
+                    if (!dir.getFileName().toString().equals(in.getFileName().toString())) {
+                        currentZipDir = currentZipDir.resolve(dir.getFileName().toString());
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+                    final Path zipTarget = currentZipDir.resolve(file.getFileName().toString());
+                    Files.createDirectories(zipTarget);
+                    Files.copy(file, zipTarget, StandardCopyOption.REPLACE_EXISTING);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
     }
 }
