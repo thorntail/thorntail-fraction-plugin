@@ -4,7 +4,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
@@ -56,9 +55,6 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}")
     private String projectOutputDir;
 
-    @Parameter(readonly = true, defaultValue = "${project.build.sourceEncoding}")
-    private String encoding;
-
     @Parameter(alias = "modules")
     private String[] modules;
 
@@ -84,24 +80,21 @@ public class GenerateMojo extends AbstractMojo {
             throw new MojoFailureException("At least 1 module needs to be configured");
         }
 
-        // Set the charset for writing files, default to UTF-8
-        final Charset charset = (encoding == null ? StandardCharsets.UTF_8 : Charset.forName(encoding));
-
         determineClassName();
 
         if (fractionModuleName == null || fractionModuleName.length() == 0) {
             throw new MojoFailureException("This plugin requires the 'fraction-module' property to be set.");
         }
 
-        generateServiceLoaderDescriptor(charset);
-        generateFeaturePack(charset);
-        generateFractionReferenceForJar(charset);
-        generateFeaturePackReferenceForJar(charset);
+        generateServiceLoaderDescriptor();
+        generateFeaturePack();
+        generateFractionReferenceForJar();
+        generateFeaturePackReferenceForJar();
     }
 
-    private void generateFractionReferenceForJar(final Charset charset) throws MojoFailureException {
+    private void generateFractionReferenceForJar() throws MojoFailureException {
         final Path reference = Paths.get(this.projectOutputDir, "wildfly-swarm-fraction.gav");
-        try (final BufferedWriter out = Files.newBufferedWriter(reference, charset)) {
+        try (final BufferedWriter out = Files.newBufferedWriter(reference, StandardCharsets.UTF_8)) {
             out.write(project.getGroupId());
             out.write(':');
             out.write(project.getArtifactId());
@@ -113,7 +106,7 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
-    private void generateFeaturePackReferenceForJar(final Charset charset) throws MojoFailureException {
+    private void generateFeaturePackReferenceForJar() throws MojoFailureException {
         if ( this.featurePack == null ) {
             return;
         }
@@ -136,7 +129,7 @@ public class GenerateMojo extends AbstractMojo {
 
         final Path reference = Paths.get(this.projectOutputDir, "wildfly-swarm-feature-pack.gav");
 
-        try (final BufferedWriter out = Files.newBufferedWriter(reference, charset)){
+        try (final BufferedWriter out = Files.newBufferedWriter(reference, StandardCharsets.UTF_8)){
             out.write(featurePackDep.getGroupId());
             out.write(':');
             out.write(featurePackDep.getArtifactId());
@@ -149,8 +142,8 @@ public class GenerateMojo extends AbstractMojo {
     }
 
 
-    private void generateFeaturePack(final Charset charset) throws MojoFailureException {
-        generateModule(charset);
+    private void generateFeaturePack() throws MojoFailureException {
+        generateModule();
         createZip();
     }
 
@@ -182,7 +175,7 @@ public class GenerateMojo extends AbstractMojo {
         this.project.addAttachedArtifact(zipArtifact);
     }
 
-    private void generateModule(final Charset charset) throws MojoFailureException {
+    private void generateModule() throws MojoFailureException {
         final Path dir = Paths.get(this.projectBuildDir, "fraction", "modules", "system", "layers", "base",
                 project.getGroupId().replace('.', File.separatorChar), fractionModuleName, "main");
 
@@ -191,7 +184,7 @@ public class GenerateMojo extends AbstractMojo {
 
         try {
             Files.createDirectories(dir);
-            try (final BufferedWriter out = Files.newBufferedWriter(moduleXml, charset)){
+            try (final BufferedWriter out = Files.newBufferedWriter(moduleXml, StandardCharsets.UTF_8)){
                 // Main module element
                 out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"");
                 out.write(project.getGroupId());
@@ -230,7 +223,7 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
-    private void generateServiceLoaderDescriptor(final Charset charset) throws MojoFailureException {
+    private void generateServiceLoaderDescriptor() throws MojoFailureException {
         if ( this.className == null ) {
             return;
         }
@@ -240,7 +233,7 @@ public class GenerateMojo extends AbstractMojo {
 
         try {
             Files.createDirectories(dir);
-            try (final BufferedWriter out = Files.newBufferedWriter(services, charset)) {
+            try (final BufferedWriter out = Files.newBufferedWriter(services, StandardCharsets.UTF_8)) {
                 out.write(packageName);
                 if (packageName.charAt(packageName.length() - 1) != '.') {
                     out.write('.');
