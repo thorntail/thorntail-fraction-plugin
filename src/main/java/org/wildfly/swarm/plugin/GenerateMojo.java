@@ -194,7 +194,7 @@ public class GenerateMojo extends AbstractMojo {
 
                 // Write the resources
                 out.write("  <resources>\n");
-                out.write("    <artifact name=\"${" + this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion() + "}\"/>\n");
+                out.write("    <artifact name=\"" + this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion() + "\"/>\n");
                 out.write("  </resources>\n");
 
                 // Write the dependencies
