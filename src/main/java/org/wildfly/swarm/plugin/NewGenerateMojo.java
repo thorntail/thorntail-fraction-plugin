@@ -215,7 +215,13 @@ public class NewGenerateMojo extends AbstractMojo {
             String match = matcher.group(0);
             String expr = matcher.group(1);
 
-            return matcher.replaceFirst(versions.get(expr));
+            if ( expr.endsWith( "?jandex" ) ) {
+                expr = expr.replace( "?jandex", "" );
+            }
+
+            String replacement = versions.get(expr);
+
+            return matcher.replaceFirst(replacement);
 
         } else {
             return line;
@@ -242,7 +248,7 @@ public class NewGenerateMojo extends AbstractMojo {
                     String version = result.group(3);
                     String classifier = result.group(5);
 
-                    String expr = groupId + ":" + artifactId + (classifier == null ? "" : ":" + classifier);
+                    String expr = groupId + ":" + artifactId + (classifier == null ? "" : "::" + classifier);
                     String qualified = groupId + ":" + artifactId + ":" + version + (classifier == null ? "" : ":" + classifier);
 
                     versions.put(expr, qualified);
