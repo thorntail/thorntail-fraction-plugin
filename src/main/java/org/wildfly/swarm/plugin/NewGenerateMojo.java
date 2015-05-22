@@ -342,6 +342,7 @@ public class NewGenerateMojo extends AbstractMojo {
     }
 
     private static Pattern MODULE_PATTERN = Pattern.compile("<module name=\"([^\"]+)\"( slot=\"([^\"]+)\")?.*");
+    private static String TARGET_NAME_STR = "target-name=\"";
 
     protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Path modulePath = root.relativize(moduleXml).getParent();
@@ -355,20 +356,29 @@ public class NewGenerateMojo extends AbstractMojo {
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                Matcher matcher = MODULE_PATTERN.matcher(line);
-
-                if (matcher.matches()) {
-                    if ( line.contains( "optional" ) ) {
-                        continue;
+                if ( line.startsWith( "<module-alias" ) ) {
+                    int loc = line.indexOf( TARGET_NAME_STR );
+                    if ( loc > 0 ) {
+                        int lastQuote = line.indexOf( '"', loc + TARGET_NAME_STR.length() );
+                        String name = line.substring( loc + TARGET_NAME_STR.length(), lastQuote );
+                        requiredModules.add( name + ":main" );
                     }
-                    MatchResult result = matcher.toMatchResult();
+                } else {
+                    Matcher matcher = MODULE_PATTERN.matcher(line);
 
-                    String moduleName = result.group(1);
-                    String slot = result.group(3);
-                    if (slot == null) {
-                        slot = "main";
+                    if (matcher.matches()) {
+                        if (line.contains("optional")) {
+                            continue;
+                        }
+                        MatchResult result = matcher.toMatchResult();
+
+                        String moduleName = result.group(1);
+                        String slot = result.group(3);
+                        if (slot == null) {
+                            slot = "main";
+                        }
+                        requiredModules.add(moduleName + ":" + slot);
                     }
-                    requiredModules.add(moduleName + ":" + slot);
                 }
             }
         }
