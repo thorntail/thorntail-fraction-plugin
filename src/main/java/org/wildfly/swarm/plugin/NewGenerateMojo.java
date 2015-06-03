@@ -1,19 +1,5 @@
 package org.wildfly.swarm.plugin;
 
-import org.apache.maven.artifact.Artifact;
-import org.apache.maven.model.Resource;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
-import org.apache.maven.plugins.annotations.LifecyclePhase;
-import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.impl.ArtifactResolver;
-
-import javax.inject.Inject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -28,7 +14,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +27,21 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+
+import javax.inject.Inject;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Resource;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.MavenProject;
+import org.eclipse.aether.impl.ArtifactResolver;
 
 /**
  * @author Bob McWhirter
@@ -57,8 +57,20 @@ import java.util.zip.ZipFile;
 public class NewGenerateMojo extends AbstractMojo {
 
     private final static String MODULES_PREFIX = "modules/";
+
     private final static String LAYERED_MODULES_PREFIX = MODULES_PREFIX + "system/layers/base/";
+
     private final static String MODULES_SUFFIX = "/module.xml";
+
+    private static final String PREFIX = "wildfly-swarm-";
+
+    private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+    private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
+
+    private static Pattern MODULE_PATTERN = Pattern.compile("<module name=\"([^\"]+)\"( slot=\"([^\"]+)\")?.*");
+
+    private static String TARGET_NAME_STR = "target-name=\"";
 
     @Component
     private MavenProject project;
@@ -74,8 +86,6 @@ public class NewGenerateMojo extends AbstractMojo {
 
     @Inject
     private ArtifactResolver resolver;
-
-    private static final String PREFIX = "wildfly-swarm-";
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
@@ -205,8 +215,6 @@ public class NewGenerateMojo extends AbstractMojo {
         }
     }
 
-    private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
-
     protected String processLine(Map<String, String> versions, String line) {
 
         Matcher matcher = EXPR_PATTERN.matcher(line);
@@ -215,8 +223,8 @@ public class NewGenerateMojo extends AbstractMojo {
             String match = matcher.group(0);
             String expr = matcher.group(1);
 
-            if ( expr.endsWith( "?jandex" ) ) {
-                expr = expr.replace( "?jandex", "" );
+            if (expr.endsWith("?jandex")) {
+                expr = expr.replace("?jandex", "");
             }
 
             String replacement = versions.get(expr);
@@ -227,9 +235,6 @@ public class NewGenerateMojo extends AbstractMojo {
             return line;
         }
     }
-
-
-    private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
 
     protected Map<String, String> processFeaturePackXml(InputStream in) throws IOException {
         Map<String, String> versions = new HashMap<>();
@@ -316,7 +321,6 @@ public class NewGenerateMojo extends AbstractMojo {
         }
     }
 
-
     protected void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
         if (artifact.getType().equals("jar")) {
             try (JarFile jar = new JarFile(artifact.getFile())) {
@@ -341,9 +345,6 @@ public class NewGenerateMojo extends AbstractMojo {
         }
     }
 
-    private static Pattern MODULE_PATTERN = Pattern.compile("<module name=\"([^\"]+)\"( slot=\"([^\"]+)\")?.*");
-    private static String TARGET_NAME_STR = "target-name=\"";
-
     protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Path modulePath = root.relativize(moduleXml).getParent();
 
@@ -356,12 +357,12 @@ public class NewGenerateMojo extends AbstractMojo {
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
-                if ( line.startsWith( "<module-alias" ) ) {
-                    int loc = line.indexOf( TARGET_NAME_STR );
-                    if ( loc > 0 ) {
-                        int lastQuote = line.indexOf( '"', loc + TARGET_NAME_STR.length() );
-                        String name = line.substring( loc + TARGET_NAME_STR.length(), lastQuote );
-                        requiredModules.add( name + ":main" );
+                if (line.startsWith("<module-alias")) {
+                    int loc = line.indexOf(TARGET_NAME_STR);
+                    if (loc > 0) {
+                        int lastQuote = line.indexOf('"', loc + TARGET_NAME_STR.length());
+                        String name = line.substring(loc + TARGET_NAME_STR.length(), lastQuote);
+                        requiredModules.add(name + ":main");
                     }
                 } else {
                     Matcher matcher = MODULE_PATTERN.matcher(line);
