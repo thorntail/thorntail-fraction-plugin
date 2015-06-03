@@ -2,4 +2,4 @@
 
 This is a Maven plugin which is primarily used by the `wildfly-swarm` project.
 
-Contains no user-servicable parts.
+Contains no user-serviceable parts.
