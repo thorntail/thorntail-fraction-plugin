@@ -1,18 +1,38 @@
 package org.wildfly.swarm.plugin;
 
-import java.io.BufferedWriter;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Writer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import javax.inject.Inject;
 
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -23,6 +43,22 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.impl.ArtifactResolver;
+import org.jboss.shrinkwrap.descriptor.api.Descriptor;
+import org.jboss.shrinkwrap.descriptor.api.Descriptors;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleAliasDescriptor;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
+import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleAliasDescriptorImpl;
+import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleDescriptorImpl;
+import org.jboss.shrinkwrap.descriptor.spi.node.Node;
+import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporter;
+import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporterImpl;
+import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
+import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomDescriptorExporter;
+import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeDescriptorImporterImpl;
+import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporter;
+import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 
 /**
  * @author Bob McWhirter
@@ -30,14 +66,28 @@ import org.eclipse.aether.impl.ArtifactResolver;
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
 @Mojo(
-        name = "xgenerate",
+        name = "generate",
         defaultPhase = LifecyclePhase.PREPARE_PACKAGE,
         requiresDependencyCollection = ResolutionScope.COMPILE,
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
 public class GenerateMojo extends AbstractMojo {
 
+    private final static String MODULES_PREFIX = "modules/";
+
+    private final static String LAYERED_MODULES_PREFIX = MODULES_PREFIX + "system/layers/base/";
+
+    private final static String MODULES_SUFFIX = "/module.xml";
+
     private static final String PREFIX = "wildfly-swarm-";
+
+    private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+    private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
+
+    private static Pattern MODULE_PATTERN = Pattern.compile("<module name=\"([^\"]+)\"( slot=\"([^\"]+)\")?.*");
+
+    private static String TARGET_NAME_STR = "target-name=\"";
 
     @Component
     private MavenProject project;
@@ -48,165 +98,314 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}")
     private String projectOutputDir;
 
-    @Parameter(alias = "modules")
-    private String[] modules;
-
-    @Parameter(alias = "exports")
-    private String[] exports;
-
-    @Parameter(alias = "feature-pack")
-    private String featurePack;
-
-    @Parameter(alias = "module-name", defaultValue = "${fraction-module}")
-    private String fractionModuleName;
-
     @Inject
     private ArtifactResolver resolver;
 
-    private String className;
-
-    private String packageName;
+    private Map<String, ModuleDescriptor> modules = new HashMap<>();
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-        if (this.modules == null || this.modules.length == 0) {
-            throw new MojoFailureException("At least 1 module needs to be configured");
+        try {
+            Set<String> requiredModules = new HashSet<>();
+            Set<String> availableModules = new HashSet<>();
+            System.err.println( "walk project" );
+            walkProjectModules(requiredModules, availableModules);
+            System.err.println( "walk dependenceis" );
+            walkDependencyModules(requiredModules, availableModules);
+
+            Map<String, File> potentialModules = new HashMap<>();
+            indexPotentialModules(potentialModules);
+
+            System.err.println( "about to locate fill" );
+            locateFillModules(potentialModules, requiredModules, availableModules);
+        } catch (IOException e) {
+            throw new MojoFailureException("Unable to walk modules directory");
         }
-
-        determineClassName();
-
-        if (fractionModuleName == null || fractionModuleName.length() == 0) {
-            throw new MojoFailureException("This plugin requires the 'fraction-module' property to be set.");
-        }
-
-        generateServiceLoaderDescriptor();
-        generateModule();
     }
 
+    protected void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoFailureException {
 
-    private void generateModule() throws MojoFailureException {
-        final Path dir = Paths.get(
-                this.projectOutputDir,
-                "modules",
-                project.getGroupId().replace('.', File.separatorChar), fractionModuleName, "main");
+        int counter = 1;
 
-        final Path moduleXml = dir.resolve("module.xml");
+        while (true) {
+            Set<String> fillModules = new HashSet<>();
+            fillModules.addAll(requiredModules);
+            fillModules.removeAll(availableModules);
 
-        try {
-            Files.createDirectories(dir);
-            try (final BufferedWriter out = Files.newBufferedWriter(moduleXml, StandardCharsets.UTF_8)) {
-                // Main module element
-                out.write("<module xmlns=\"urn:jboss:module:1.3\" name=\"");
-                out.write(project.getGroupId());
-                out.write('.');
-                out.write(fractionModuleName);
-                out.write("\">\n");
-
-                // Write the resources
-                out.write("  <resources>\n");
-                out.write("    <artifact name=\"" + this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion() + "\"/>\n");
-                out.write("  </resources>\n");
-
-                // Write the dependencies
-                out.write("  <dependencies>\n");
-                out.write("    <module name=\"org.wildfly.swarm.container\"/>\n");
-
-                for (final String module : modules) {
-                    out.write("    <module name=\"");
-                    out.write(module.trim());
-                    out.write("\"/>\n");
-                }
-
-                if (this.exports != null) {
-                    for (final String export : this.exports) {
-                        out.write("    <module name=\"");
-                        out.write(export.trim());
-                        out.write("\" export=\"true\"/>\n");
-                    }
-                }
-                out.write("  </dependencies>\n");
-                out.write("</module>\n");
-
+            if (fillModules.isEmpty()) {
+                break;
             }
-        } catch (IOException e) {
-            throw new MojoFailureException("Unable to create module.xml", e);
-        }
-    }
 
-    private void generateServiceLoaderDescriptor() throws MojoFailureException {
-        if (this.className == null) {
-            return;
-        }
-
-        final Path dir = Paths.get(this.projectBuildDir, "classes/META-INF/services");
-        final Path services = dir.resolve("org.wildfly.swarm.container.FractionDefaulter");
-
-        try {
-            Files.createDirectories(dir);
-            try (final BufferedWriter out = Files.newBufferedWriter(services, StandardCharsets.UTF_8)) {
-                out.write(packageName);
-                if (packageName.charAt(packageName.length() - 1) != '.') {
-                    out.write('.');
+            Set<File> relevantFiles = new HashSet<>();
+            for (String each : fillModules) {
+                File file = potentialModules.get(each);
+                if (file == null) {
+                    throw new MojoFailureException("Unable to locate required module: " + each);
                 }
-                out.write(className);
-                out.write('\n');
+                relevantFiles.add(file);
             }
-        } catch (IOException e) {
-            throw new MojoFailureException("Unable to create services file: " + services, e);
+
+            addFillModules(fillModules, relevantFiles, requiredModules, availableModules);
         }
     }
 
-    private void determineClassName() throws MojoFailureException {
-        try {
-            final Path classesDir = Paths.get(projectOutputDir);
-            System.err.println("classesDir: " + classesDir);
-            Files.walkFileTree(classesDir, new SimpleFileVisitor<Path>() {
-                Path packageDir = Paths.get(".");
+    protected void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoFailureException {
+        for (File each : relevantFiles) {
+            addFillModules(fillModules, each, requiredModules, availableModules);
+        }
+    }
 
-                @Override
-                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-                    System.err.println("preVisit: " + dir);
-                    if (dir.getFileName().toString().equals("META-INF")) {
-                        return FileVisitResult.SKIP_SUBTREE;
+    protected void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoFailureException {
+        Map<String, ZipEntry> moduleXmls = new HashMap<>();
+        ZipEntry featurePackXml = null;
+
+        try (ZipFile zip = new ZipFile(file)) {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                String name = entry.getName();
+
+                if (name.equals("wildfly-feature-pack.xml")) {
+                    featurePackXml = entry;
+                } else if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+
+                    int lastSlashLoc = coreName.lastIndexOf('/');
+
+                    String moduleName = coreName.substring(0, lastSlashLoc);
+                    String slot = coreName.substring(lastSlashLoc + 1);
+
+                    moduleName = moduleName.replace('/', '.');
+
+                    if (fillModules.contains(moduleName + ":" + slot)) {
+                        moduleXmls.put(moduleName + ":" + slot, entry);
                     }
-                    // Ignore the first directory
-                    if (!classesDir.getFileName().equals(dir.getFileName())) {
-                        System.err.println("pre-resolve: " + packageDir);
-                        packageDir = packageDir.resolve(dir.getFileName());
-                        System.err.println("post-resolve: " + packageDir);
-                    }
-                    return FileVisitResult.CONTINUE;
                 }
+            }
 
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    System.err.println("visitFile: " + file);
-                    if (file.getFileName().toString().endsWith("FractionDefaulter.class")) {
-                        System.err.println("relative: " + classesDir.relativize(file));
-                        // Strip out .class from name
-                        String name = file.getFileName().toString();
-                        setClassName(name.substring(0, name.length() - 6));
-                        setPackage(classesDir.relativize(file).getParent().toString().replace(File.separatorChar, '.'));
-                        return FileVisitResult.TERMINATE;
-                    }
-                    return FileVisitResult.CONTINUE;
+            if (featurePackXml == null) {
+                throw new MojoFailureException("Unable to find -feature-pack.xml");
+            }
+
+            Map<String, String> versions = processFeaturePackXml(zip.getInputStream(featurePackXml));
+
+            for (String moduleName : moduleXmls.keySet()) {
+                ZipEntry entry = moduleXmls.get(moduleName);
+                addFillModule(versions, moduleName, zip.getInputStream(entry), requiredModules, availableModules);
+            }
+        }
+    }
+
+    protected void addFillModule(Map<String, String> versions, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+
+        Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
+        Path modulesDir = classesDir.resolve("modules");
+
+        String[] parts = moduleName.split(":");
+        String[] moduleParts = parts[0].split("\\.");
+
+        Path moduleDir = modulesDir;
+
+        for (int i = 0; i < moduleParts.length; ++i) {
+            moduleDir = moduleDir.resolve(moduleParts[i]);
+        }
+
+        moduleDir = moduleDir.resolve(parts[1]);
+
+        Path moduleXml = moduleDir.resolve("module.xml");
+
+        processFillModule(versions, moduleXml, in);
+
+        analyzeModuleXml(modulesDir, moduleXml, requiredModules, availableModules);
+    }
+
+    protected void processFillModule(Map<String, String> versions, Path moduleXml, InputStream in) throws IOException {
+
+        Files.createDirectories(moduleXml.getParent());
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+             Writer out = new FileWriter(moduleXml.toFile())) {
+
+            String line = null;
+
+            while ((line = reader.readLine()) != null) {
+                out.write(processLine(versions, line) + "\n");
+            }
+        }
+    }
+
+    protected String processLine(Map<String, String> versions, String line) {
+
+        Matcher matcher = EXPR_PATTERN.matcher(line);
+
+        if (matcher.find()) {
+            String match = matcher.group(0);
+            String expr = matcher.group(1);
+
+            if (expr.endsWith("?jandex")) {
+                expr = expr.replace("?jandex", "");
+            }
+
+            String replacement = versions.get(expr);
+
+            return matcher.replaceFirst(replacement);
+
+        } else {
+            return line;
+        }
+    }
+
+    protected Map<String, String> processFeaturePackXml(InputStream in) throws IOException {
+        Map<String, String> versions = new HashMap<>();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
+            String line = null;
+
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+
+                Matcher matcher = ARTIFACT_PATTERN.matcher(line);
+                if (matcher.matches()) {
+                    MatchResult result = matcher.toMatchResult();
+
+                    String groupId = result.group(1);
+                    String artifactId = result.group(2);
+                    String version = result.group(3);
+                    String classifier = result.group(5);
+
+                    String expr = groupId + ":" + artifactId + (classifier == null ? "" : "::" + classifier);
+                    String qualified = groupId + ":" + artifactId + ":" + version + (classifier == null ? "" : ":" + classifier);
+
+                    versions.put(expr, qualified);
                 }
-            });
-        } catch (IOException e) {
-            throw new MojoFailureException("Unable to determine FractionDefaulter class", e);
+            }
+        }
+        return versions;
+    }
+
+    protected void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
+        Set<Artifact> artifacts = this.project.getArtifacts();
+
+        for (Artifact each : artifacts) {
+            if (each.getType().equals("zip")) {
+                indexPotentialModules(each.getFile(), potentialModules);
+            }
         }
     }
 
-    private void setClassName(String className) {
-        this.className = className;
-        String artifactId = this.project.getArtifactId();
-        if (this.fractionModuleName == null && artifactId.startsWith(PREFIX)) {
-            this.fractionModuleName = artifactId.substring(PREFIX.length());
+    protected void indexPotentialModules(File file, Map<String, File> potentialModules) throws IOException {
+        try (ZipFile zip = new ZipFile(file)) {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry each = entries.nextElement();
+                String name = each.getName();
+                if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+
+                    int lastSlashLoc = coreName.lastIndexOf('/');
+
+                    String moduleName = coreName.substring(0, lastSlashLoc);
+                    String slot = coreName.substring(lastSlashLoc + 1);
+
+                    moduleName = moduleName.replace('/', '.');
+
+                    potentialModules.put(moduleName + ":" + slot, file);
+                }
+            }
         }
     }
 
-    private void setPackage(String name) {
-        this.packageName = name;
-        System.err.println(" --------------- " + this.packageName);
+    protected void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
+        List<Resource> resources = this.project.getBuild().getResources();
+        for (Resource each : resources) {
+            final Path modulesDir = Paths.get(each.getDirectory()).resolve("modules");
+            if (Files.exists(modulesDir)) {
+                Files.walkFileTree(modulesDir, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        if (file.getFileName().toString().equals("module.xml")) {
+                            analyzeModuleXml(modulesDir, file, requiredModules, availableModules);
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            }
+        }
+    }
+
+    protected void walkDependencyModules(Set<String> requiredModules, Set<String> availableModules) throws IOException {
+        Set<Artifact> artifacts = this.project.getArtifacts();
+
+        for (Artifact each : artifacts) {
+            collectAvailableModules(each, availableModules);
+        }
+    }
+
+    protected void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
+        if (artifact.getType().equals("jar")) {
+            System.err.println( "walking dependency: " + artifact );
+            try (JarFile jar = new JarFile(artifact.getFile())) {
+                Enumeration<JarEntry> entries = jar.entries();
+
+                while (entries.hasMoreElements()) {
+                    JarEntry each = entries.nextElement();
+                    String name = each.getName();
+                    if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                        String coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+
+                        int lastSlashLoc = coreName.lastIndexOf('/');
+
+                        String moduleName = coreName.substring(0, lastSlashLoc);
+                        String slot = coreName.substring(lastSlashLoc + 1);
+
+                        moduleName = moduleName.replace('/', '.');
+                        System.err.println( "avail: " + moduleName + ":" + slot );
+                        modules.add(moduleName + ":" + slot);
+                    }
+                }
+            }
+        }
+    }
+
+    protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+        Path modulePath = root.relativize(moduleXml).getParent();
+
+        String selfSlot = modulePath.getName(modulePath.getNameCount() - 1).toString();
+        String selfModuleName = modulePath.getParent().toString().replace(File.separatorChar, '.');
+
+        System.err.println( "avail: " + selfModuleName + ":" + selfSlot );
+        availableModules.add(selfModuleName + ":" + selfSlot);
+
+        NodeImporter importer = new XmlDomNodeImporterImpl();
+        Node node = importer.importAsNode(new FileInputStream(moduleXml.toFile()), true);
+
+        String rootName = node.getName();
+
+        if ( rootName.equals( "module" ) ) {
+            ModuleDescriptor desc = new ModuleDescriptorImpl( null, node );
+            DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
+            List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
+            for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDependency : moduleDependencies) {
+                if ( moduleDependency.isOptional() ) {
+                    continue;
+                }
+                String name = moduleDependency.getName();
+                String slot = moduleDependency.getSlot();
+                if ( slot == null ) {
+                    slot = "main";
+                }
+                requiredModules.add( name + ":" + slot );
+            }
+        } else if (rootName.equals( "module-alias" ) ) {
+            ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
+            String name = desc.getTargetName();
+            String slot = desc.getTargetSlot();
+            if ( slot == null ) {
+                slot = "main";
+            }
+            requiredModules.add( name + ":" + slot );
+        } else {
+
+        }
     }
 
 }

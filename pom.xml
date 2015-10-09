@@ -23,6 +23,10 @@
 
   <packaging>maven-plugin</packaging>
 
+  <properties>
+    <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-8</version.org.jboss.shrinkwrap.descriptors>
+  </properties>
+
   <scm>
     <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</developerConnection>
@@ -73,6 +77,19 @@
       <artifactId>maven-core</artifactId>
       <version>3.2.5</version>
       <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jboss.shrinkwrap.descriptors</groupId>
+      <artifactId>shrinkwrap-descriptors-api-jboss</artifactId>
+      <version>${version.org.jboss.shrinkwrap.descriptors}</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.shrinkwrap.descriptors</groupId>
+      <artifactId>shrinkwrap-descriptors-impl-jboss</artifactId>
+      <version>${version.org.jboss.shrinkwrap.descriptors}</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>
