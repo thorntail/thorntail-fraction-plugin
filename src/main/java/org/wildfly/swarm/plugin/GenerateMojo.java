@@ -3,7 +3,6 @@ package org.wildfly.swarm.plugin;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,8 +42,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.impl.ArtifactResolver;
-import org.jboss.shrinkwrap.descriptor.api.Descriptor;
-import org.jboss.shrinkwrap.descriptor.api.Descriptors;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleAliasDescriptor;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
@@ -52,12 +49,7 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleAliasDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.spi.node.Node;
-import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporter;
-import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporterImpl;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
-import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomDescriptorExporter;
-import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeDescriptorImporterImpl;
-import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 
 /**
@@ -85,10 +77,6 @@ public class GenerateMojo extends AbstractMojo {
 
     private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
 
-    private static Pattern MODULE_PATTERN = Pattern.compile("<module name=\"([^\"]+)\"( slot=\"([^\"]+)\")?.*");
-
-    private static String TARGET_NAME_STR = "target-name=\"";
-
     @Component
     private MavenProject project;
 
@@ -109,13 +97,13 @@ public class GenerateMojo extends AbstractMojo {
             Set<String> availableModules = new HashSet<>();
             System.err.println( "walk project" );
             walkProjectModules(requiredModules, availableModules);
-            System.err.println( "walk dependenceis" );
+            System.err.println("walk dependenceis");
             walkDependencyModules(requiredModules, availableModules);
 
             Map<String, File> potentialModules = new HashMap<>();
             indexPotentialModules(potentialModules);
 
-            System.err.println( "about to locate fill" );
+            System.err.println("about to locate fill");
             locateFillModules(potentialModules, requiredModules, availableModules);
         } catch (IOException e) {
             throw new MojoFailureException("Unable to walk modules directory");
