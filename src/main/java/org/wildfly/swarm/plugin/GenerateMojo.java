@@ -67,7 +67,7 @@ public class GenerateMojo extends AbstractMojo {
 
     private final static String MODULES_PREFIX = "modules/";
 
-    private final static String LAYERED_MODULES_PREFIX = MODULES_PREFIX + "system/layers/base/";
+    private final static String LAYERED_MODULES_PREFIX = MODULES_PREFIX + "system/layers/";
 
     private final static String MODULES_SUFFIX = "/module.xml";
 
@@ -97,7 +97,7 @@ public class GenerateMojo extends AbstractMojo {
             Set<String> availableModules = new HashSet<>();
             System.err.println( "walk project" );
             walkProjectModules(requiredModules, availableModules);
-            System.err.println("walk dependenceis");
+            System.err.println("walk dependencies");
             walkDependencyModules(requiredModules, availableModules);
 
             Map<String, File> potentialModules = new HashMap<>();
@@ -111,9 +111,6 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     protected void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoFailureException {
-
-        int counter = 1;
-
         while (true) {
             Set<String> fillModules = new HashSet<>();
             fillModules.addAll(requiredModules);
@@ -156,7 +153,8 @@ public class GenerateMojo extends AbstractMojo {
                 if (name.equals("wildfly-feature-pack.xml")) {
                     featurePackXml = entry;
                 } else if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    String prefix = determineModuleLayerPrefix(name);
+                    String coreName = name.substring(prefix.length(), name.length() - MODULES_SUFFIX.length());
 
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
@@ -287,7 +285,8 @@ public class GenerateMojo extends AbstractMojo {
                 ZipEntry each = entries.nextElement();
                 String name = each.getName();
                 if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    String prefix = determineModuleLayerPrefix(name);
+                    String coreName = name.substring(prefix.length(), name.length() - MODULES_SUFFIX.length());
 
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
@@ -396,4 +395,9 @@ public class GenerateMojo extends AbstractMojo {
         }
     }
 
+    protected String determineModuleLayerPrefix(String path) {
+        String modulePath = path.replace(MODULES_SUFFIX, "").replace(LAYERED_MODULES_PREFIX, "");
+        String layer = modulePath.substring(0, modulePath.indexOf("/"));
+        return LAYERED_MODULES_PREFIX + layer + "/";
+    }
 }
