@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -95,15 +96,12 @@ public class GenerateMojo extends AbstractMojo {
         try {
             Set<String> requiredModules = new HashSet<>();
             Set<String> availableModules = new HashSet<>();
-            System.err.println( "walk project" );
             walkProjectModules(requiredModules, availableModules);
-            System.err.println("walk dependenceis");
             walkDependencyModules(requiredModules, availableModules);
 
             Map<String, File> potentialModules = new HashMap<>();
             indexPotentialModules(potentialModules);
 
-            System.err.println("about to locate fill");
             locateFillModules(potentialModules, requiredModules, availableModules);
         } catch (IOException e) {
             throw new MojoFailureException("Unable to walk modules directory");
@@ -180,6 +178,48 @@ public class GenerateMojo extends AbstractMojo {
             for (String moduleName : moduleXmls.keySet()) {
                 ZipEntry entry = moduleXmls.get(moduleName);
                 addFillModule(versions, moduleName, zip.getInputStream(entry), requiredModules, availableModules);
+                addResources( zip, moduleName, entry );
+            }
+        }
+    }
+
+    protected void addResources(ZipFile zip, String moduleName, ZipEntry moduleXml) {
+
+        String moduleXmlPath = moduleXml.getName();
+        String rootName = moduleXmlPath.substring( 0, moduleXmlPath.length() - "module.xml".length() );
+
+        Enumeration<? extends ZipEntry> entries = zip.entries();
+
+        while ( entries.hasMoreElements() ) {
+            ZipEntry entry = entries.nextElement();
+            if ( ! entry.isDirectory() ) {
+                if (entry.getName().startsWith(rootName) && !entry.getName().equals(moduleXmlPath)) {
+
+                    String resourceRelative = entry.getName().substring( rootName.length() );
+                    resourceRelative.replace( '/', File.separatorChar );
+                    Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
+                    Path modulesDir = classesDir.resolve("modules");
+
+                    String[] parts = moduleName.split(":");
+                    String[] moduleParts = parts[0].split("\\.");
+
+                    Path moduleDir = modulesDir;
+
+                    for (int i = 0; i < moduleParts.length; ++i) {
+                        moduleDir = moduleDir.resolve(moduleParts[i]);
+                    }
+
+                    moduleDir = moduleDir.resolve(parts[1]);
+
+                    Path resourcePath = moduleDir.resolve( resourceRelative );
+
+                    try {
+                        Files.createDirectories( resourcePath.getParent() );
+                        Files.copy( zip.getInputStream( entry ), resourcePath, StandardCopyOption.REPLACE_EXISTING );
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }
@@ -330,7 +370,6 @@ public class GenerateMojo extends AbstractMojo {
 
     protected void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
         if (artifact.getType().equals("jar")) {
-            System.err.println( "walking dependency: " + artifact );
             try (JarFile jar = new JarFile(artifact.getFile())) {
                 Enumeration<JarEntry> entries = jar.entries();
 
@@ -346,7 +385,6 @@ public class GenerateMojo extends AbstractMojo {
                         String slot = coreName.substring(lastSlashLoc + 1);
 
                         moduleName = moduleName.replace('/', '.');
-                        System.err.println( "avail: " + moduleName + ":" + slot );
                         modules.add(moduleName + ":" + slot);
                     }
                 }
@@ -360,7 +398,6 @@ public class GenerateMojo extends AbstractMojo {
         String selfSlot = modulePath.getName(modulePath.getNameCount() - 1).toString();
         String selfModuleName = modulePath.getParent().toString().replace(File.separatorChar, '.');
 
-        System.err.println( "avail: " + selfModuleName + ":" + selfSlot );
         availableModules.add(selfModuleName + ":" + selfSlot);
 
         NodeImporter importer = new XmlDomNodeImporterImpl();
