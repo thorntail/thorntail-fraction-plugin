@@ -4,8 +4,7 @@
   ~
   ~ Licensed under the Apache License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
   -->
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -19,7 +18,7 @@
 
   <name>WildFly Swarm: Fraction Plugin</name>
   <description>Plugin to create fraction packages for Wildfly Swarm proper.</description>
-  <version>1.0.0.Alpha4-SNAPSHOT</version>
+  <version>1.0.0.Alpha4</version>
 
   <packaging>maven-plugin</packaging>
 
@@ -31,7 +30,7 @@
     <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</developerConnection>
     <url>https://github.com/wildfly-swarm/wildfly-swarm-fraction-plugin</url>
-    <tag>HEAD</tag>
+    <tag>1.0.0.Alpha4</tag>
   </scm>
 
   <build>
