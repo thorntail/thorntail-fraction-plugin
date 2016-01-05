@@ -3,6 +3,7 @@ package org.wildfly.swarm.plugin;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,14 +44,19 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.impl.ArtifactResolver;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleAliasDescriptor;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ResourcesType;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleAliasDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.spi.node.Node;
+import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptor;
+import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
+import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomDescriptorExporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 
 /**
@@ -72,9 +78,6 @@ public class GenerateMojo extends AbstractMojo {
 
     private final static String MODULES_SUFFIX = "/module.xml";
 
-    private static final String PREFIX = "wildfly-swarm-";
-
-    private static final Pattern EXPR_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
 
     private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
 
@@ -104,7 +107,7 @@ public class GenerateMojo extends AbstractMojo {
 
             locateFillModules(potentialModules, requiredModules, availableModules);
         } catch (IOException e) {
-            throw new MojoFailureException("Unable to walk modules directory");
+            throw new MojoFailureException("Unable to walk modules directory", e);
         }
     }
 
@@ -151,11 +154,17 @@ public class GenerateMojo extends AbstractMojo {
                 ZipEntry entry = entries.nextElement();
                 String name = entry.getName();
 
+                String coreName = null;
+
                 if (name.equals("wildfly-feature-pack.xml")) {
                     featurePackXml = entry;
                 } else if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                } else if ( name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX) ) {
+                    coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                }
 
+                if ( coreName != null ) {
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
                     String moduleName = coreName.substring(0, lastSlashLoc);
@@ -178,7 +187,7 @@ public class GenerateMojo extends AbstractMojo {
             for (String moduleName : moduleXmls.keySet()) {
                 ZipEntry entry = moduleXmls.get(moduleName);
                 addFillModule(versions, moduleName, zip.getInputStream(entry), requiredModules, availableModules);
-                addResources( zip, moduleName, entry );
+                addResources(zip, moduleName, entry);
             }
         }
     }
@@ -186,17 +195,17 @@ public class GenerateMojo extends AbstractMojo {
     protected void addResources(ZipFile zip, String moduleName, ZipEntry moduleXml) {
 
         String moduleXmlPath = moduleXml.getName();
-        String rootName = moduleXmlPath.substring( 0, moduleXmlPath.length() - "module.xml".length() );
+        String rootName = moduleXmlPath.substring(0, moduleXmlPath.length() - "module.xml".length());
 
         Enumeration<? extends ZipEntry> entries = zip.entries();
 
-        while ( entries.hasMoreElements() ) {
+        while (entries.hasMoreElements()) {
             ZipEntry entry = entries.nextElement();
-            if ( ! entry.isDirectory() ) {
+            if (!entry.isDirectory()) {
                 if (entry.getName().startsWith(rootName) && !entry.getName().equals(moduleXmlPath)) {
 
-                    String resourceRelative = entry.getName().substring( rootName.length() );
-                    resourceRelative.replace( '/', File.separatorChar );
+                    String resourceRelative = entry.getName().substring(rootName.length());
+                    resourceRelative.replace('/', File.separatorChar);
                     Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
                     Path modulesDir = classesDir.resolve("modules");
 
@@ -211,11 +220,11 @@ public class GenerateMojo extends AbstractMojo {
 
                     moduleDir = moduleDir.resolve(parts[1]);
 
-                    Path resourcePath = moduleDir.resolve( resourceRelative );
+                    Path resourcePath = moduleDir.resolve(resourceRelative);
 
                     try {
-                        Files.createDirectories( resourcePath.getParent() );
-                        Files.copy( zip.getInputStream( entry ), resourcePath, StandardCopyOption.REPLACE_EXISTING );
+                        Files.createDirectories(resourcePath.getParent());
+                        Files.copy(zip.getInputStream(entry), resourcePath, StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -248,38 +257,37 @@ public class GenerateMojo extends AbstractMojo {
     }
 
     protected void processFillModule(Map<String, String> versions, Path moduleXml, InputStream in) throws IOException {
-
         Files.createDirectories(moduleXml.getParent());
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-             Writer out = new FileWriter(moduleXml.toFile())) {
+        NodeImporter importer = new XmlDomNodeImporterImpl();
+        Node node = importer.importAsNode(in, true);
 
-            String line = null;
+        String rootName = node.getName();
 
-            while ((line = reader.readLine()) != null) {
-                out.write(processLine(versions, line) + "\n");
-            }
-        }
-    }
+        if (rootName.equals("module")) {
+            ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
+            List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = desc.getOrCreateResources().getAllArtifact();
+            for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
+                String name = artifact.getName();
+                if (name.startsWith("${")) {
+                    name = name.substring(2, name.length() - 1);
+                }
+                if (name.endsWith("?jandex")) {
+                    name = name.replace("?jandex", "");
+                }
 
-    protected String processLine(Map<String, String> versions, String line) {
-
-        Matcher matcher = EXPR_PATTERN.matcher(line);
-
-        if (matcher.find()) {
-            String match = matcher.group(0);
-            String expr = matcher.group(1);
-
-            if (expr.endsWith("?jandex")) {
-                expr = expr.replace("?jandex", "");
+                name = versions.get(name);
+                artifact.name(name);
             }
 
-            String replacement = versions.get(expr);
-
-            return matcher.replaceFirst(replacement);
-
-        } else {
-            return line;
+            try (FileOutputStream out = new FileOutputStream(moduleXml.toFile())) {
+                desc.exportTo(out);
+            }
+        } else if (rootName.equals("module-alias")) {
+            ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
+            try (FileOutputStream out = new FileOutputStream(moduleXml.toFile())) {
+                desc.exportTo(out);
+            }
         }
     }
 
@@ -326,9 +334,14 @@ public class GenerateMojo extends AbstractMojo {
             while (entries.hasMoreElements()) {
                 ZipEntry each = entries.nextElement();
                 String name = each.getName();
+                String coreName = null;
                 if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    String coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                } else if ( name.startsWith( MODULES_PREFIX) && name.endsWith( MODULES_SUFFIX ) ) {
+                    coreName = name.substring( MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length() );
+                }
 
+                if ( coreName != null ) {
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
                     String moduleName = coreName.substring(0, lastSlashLoc);
@@ -405,29 +418,30 @@ public class GenerateMojo extends AbstractMojo {
 
         String rootName = node.getName();
 
-        if ( rootName.equals( "module" ) ) {
-            ModuleDescriptor desc = new ModuleDescriptorImpl( null, node );
+        if (rootName.equals("module")) {
+            ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
             DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
             List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
             for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDependency : moduleDependencies) {
-                if ( moduleDependency.isOptional() ) {
+                if (moduleDependency.isOptional()) {
                     continue;
                 }
                 String name = moduleDependency.getName();
                 String slot = moduleDependency.getSlot();
-                if ( slot == null ) {
+                if (slot == null) {
                     slot = "main";
                 }
-                requiredModules.add( name + ":" + slot );
+
+                requiredModules.add(name + ":" + slot);
             }
-        } else if (rootName.equals( "module-alias" ) ) {
+        } else if (rootName.equals("module-alias")) {
             ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
             String name = desc.getTargetName();
             String slot = desc.getTargetSlot();
-            if ( slot == null ) {
+            if (slot == null) {
                 slot = "main";
             }
-            requiredModules.add( name + ":" + slot );
+            requiredModules.add(name + ":" + slot);
         } else {
 
         }
