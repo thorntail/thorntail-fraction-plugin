@@ -95,8 +95,11 @@ public class GenerateMojo extends AbstractMojo {
 
     private Map<String, ModuleDescriptor> modules = new HashMap<>();
 
+    private ModuleRewriteConf rules;
+
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
+            loadRewriteRules();
             Set<String> requiredModules = new HashSet<>();
             Set<String> availableModules = new HashSet<>();
             walkProjectModules(requiredModules, availableModules);
@@ -109,6 +112,12 @@ public class GenerateMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoFailureException("Unable to walk modules directory", e);
         }
+    }
+
+    protected void loadRewriteRules() throws IOException {
+        Path rewriteConf = Paths.get(this.project.getBasedir().getAbsolutePath(), "module-rewrite.conf");
+        this.rules = new ModuleRewriteConf( rewriteConf );
+
     }
 
     protected void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoFailureException {
@@ -280,6 +289,8 @@ public class GenerateMojo extends AbstractMojo {
                 artifact.name(name);
             }
 
+            desc = this.rules.rewrite( desc );
+
             try (FileOutputStream out = new FileOutputStream(moduleXml.toFile())) {
                 desc.exportTo(out);
             }
@@ -408,6 +419,10 @@ public class GenerateMojo extends AbstractMojo {
     protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Path modulePath = root.relativize(moduleXml).getParent();
 
+        if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
+            System.err.println("Analyzing: " + moduleXml);
+        }
+
         String selfSlot = modulePath.getName(modulePath.getNameCount() - 1).toString();
         String selfModuleName = modulePath.getParent().toString().replace(File.separatorChar, '.');
 
@@ -420,6 +435,9 @@ public class GenerateMojo extends AbstractMojo {
 
         if (rootName.equals("module")) {
             ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
+
+            desc = this.rules.rewrite( desc );
+
             DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
             List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
             for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDependency : moduleDependencies) {
@@ -433,6 +451,9 @@ public class GenerateMojo extends AbstractMojo {
                 }
 
                 requiredModules.add(name + ":" + slot);
+                if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
+                    System.err.println(" - requires: " + name + ":" + slot);
+                }
             }
         } else if (rootName.equals("module-alias")) {
             ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
@@ -442,6 +463,9 @@ public class GenerateMojo extends AbstractMojo {
                 slot = "main";
             }
             requiredModules.add(name + ":" + slot);
+            if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
+                System.err.println(" - requires: " + name + ":" + slot);
+            }
         } else {
 
         }
