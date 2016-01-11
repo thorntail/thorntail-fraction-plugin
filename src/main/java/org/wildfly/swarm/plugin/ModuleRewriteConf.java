@@ -31,6 +31,10 @@ public class ModuleRewriteConf {
             String line = null;
 
             while ((line = in.readLine()) != null) {
+                line = line.trim();
+                if ( line.isEmpty() ) {
+                    continue;
+                }
                 if (line.startsWith("*")) {
                     String name = null;
                     String slot = "main";
@@ -71,11 +75,18 @@ public class ModuleRewriteConf {
         }
 
         ModuleRewriteRules rules = this.rules.get(descName +":" + descSlot );
-        if (rules == null) {
-            return desc;
+        if (rules != null) {
+            desc = rules.rewrite(desc);
         }
 
-        return rules.rewrite(desc);
+        ModuleRewriteRules all = this.rules.get( "ALL:ALL" );
+
+        if ( all != null ) {
+            desc = all.rewrite(desc);
+        }
+
+        return desc;
+
 
     }
 }

@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.DecimalFormat;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.inject.Inject;
+import javax.naming.directory.BasicAttribute;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Resource;
@@ -43,7 +45,12 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleAliasDescriptor;
@@ -93,9 +100,14 @@ public class GenerateMojo extends AbstractMojo {
     @Inject
     private ArtifactResolver resolver;
 
+    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
+    protected DefaultRepositorySystemSession repositorySystemSession;
+
     private Map<String, ModuleDescriptor> modules = new HashMap<>();
 
     private ModuleRewriteConf rules;
+
+    private Set<String> allArtifacts = new HashSet<>();
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
@@ -112,11 +124,35 @@ public class GenerateMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoFailureException("Unable to walk modules directory", e);
         }
+
+        long size = 0;
+        DecimalFormat fmt = new DecimalFormat("####.00");
+        for (String each : this.allArtifacts) {
+            ArtifactRequest req = new ArtifactRequest();
+            org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(each);
+            req.setArtifact(artifact);
+
+            try {
+                ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
+                if (artifactResult.isResolved()) {
+                    File file = artifactResult.getArtifact().getFile();
+                    long artifactSize = Files.size(file.toPath());
+                    size += artifactSize;
+                    //getLog().info( "Artifact: " + each + ":  " + fmt.format( artifactSize / ( 1024.0*1024.0) ) + "mb");
+                    getLog().info( String.format( "%100s %10s mb", each, fmt.format( artifactSize / (1024.0*1024.0) )));
+                }
+            } catch (ArtifactResolutionException e) {
+                //e.printStackTrace();
+            } catch (IOException e) {
+                //e.printStackTrace();
+            }
+        }
+        getLog().info("All Artifacts:  " + size / (1024 * 1024) + "mb");
     }
 
     protected void loadRewriteRules() throws IOException {
         Path rewriteConf = Paths.get(this.project.getBasedir().getAbsolutePath(), "module-rewrite.conf");
-        this.rules = new ModuleRewriteConf( rewriteConf );
+        this.rules = new ModuleRewriteConf(rewriteConf);
 
     }
 
@@ -169,11 +205,11 @@ public class GenerateMojo extends AbstractMojo {
                     featurePackXml = entry;
                 } else if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
                     coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
-                } else if ( name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX) ) {
+                } else if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
                     coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
                 }
 
-                if ( coreName != null ) {
+                if (coreName != null) {
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
                     String moduleName = coreName.substring(0, lastSlashLoc);
@@ -287,9 +323,11 @@ public class GenerateMojo extends AbstractMojo {
 
                 name = versions.get(name);
                 artifact.name(name);
+
+                this.allArtifacts.add(name);
             }
 
-            desc = this.rules.rewrite( desc );
+            desc = this.rules.rewrite(desc);
 
             try (FileOutputStream out = new FileOutputStream(moduleXml.toFile())) {
                 desc.exportTo(out);
@@ -348,11 +386,11 @@ public class GenerateMojo extends AbstractMojo {
                 String coreName = null;
                 if (name.startsWith(LAYERED_MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
                     coreName = name.substring(LAYERED_MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
-                } else if ( name.startsWith( MODULES_PREFIX) && name.endsWith( MODULES_SUFFIX ) ) {
-                    coreName = name.substring( MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length() );
+                } else if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                    coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
                 }
 
-                if ( coreName != null ) {
+                if (coreName != null) {
                     int lastSlashLoc = coreName.lastIndexOf('/');
 
                     String moduleName = coreName.substring(0, lastSlashLoc);
@@ -419,12 +457,11 @@ public class GenerateMojo extends AbstractMojo {
     protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Path modulePath = root.relativize(moduleXml).getParent();
 
-        if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
-            System.err.println("Analyzing: " + moduleXml);
-        }
 
         String selfSlot = modulePath.getName(modulePath.getNameCount() - 1).toString();
         String selfModuleName = modulePath.getParent().toString().replace(File.separatorChar, '.');
+
+        getLog().info("Analyzing: " + selfModuleName + ":" + selfSlot + " (" + moduleXml + ")");
 
         availableModules.add(selfModuleName + ":" + selfSlot);
 
@@ -436,7 +473,7 @@ public class GenerateMojo extends AbstractMojo {
         if (rootName.equals("module")) {
             ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
 
-            desc = this.rules.rewrite( desc );
+            desc = this.rules.rewrite(desc);
 
             DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
             List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
@@ -451,9 +488,7 @@ public class GenerateMojo extends AbstractMojo {
                 }
 
                 requiredModules.add(name + ":" + slot);
-                if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
-                    System.err.println(" - requires: " + name + ":" + slot);
-                }
+                getLog().info(" - requires: " + name + ":" + slot);
             }
         } else if (rootName.equals("module-alias")) {
             ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
@@ -463,9 +498,7 @@ public class GenerateMojo extends AbstractMojo {
                 slot = "main";
             }
             requiredModules.add(name + ":" + slot);
-            if ( System.getProperty( "swarm.fraction.debug" ) != null ) {
-                System.err.println(" - requires: " + name + ":" + slot);
-            }
+            getLog().info(" - requires: " + name + ":" + slot);
         } else {
 
         }
