@@ -15,6 +15,9 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
  */
 public class ModuleRewriteConf {
 
+    private static final String MODULE = "module:";
+    private static final String OPTIONAL = "optional:";
+
     private Map<String, ModuleRewriteRules> rules = new HashMap<>();
 
     public ModuleRewriteConf(Path file) throws IOException {
@@ -30,27 +33,30 @@ public class ModuleRewriteConf {
 
             String line = null;
 
+            int lineNumber = 0;
+
             while ((line = in.readLine()) != null) {
+                ++lineNumber;
                 line = line.trim();
                 if ( line.isEmpty() ) {
                     continue;
                 }
-                if (line.startsWith("*")) {
+                if (line.startsWith(OPTIONAL)) {
                     String name = null;
                     String slot = "main";
 
-                    String[] parts = line.substring(1).trim().split(":");
+                    String[] parts = line.substring(OPTIONAL.length()).trim().split(":");
                     name = parts[0];
                     if (parts.length > 1) {
                         slot = parts[1];
                     }
 
                     current.makeOptional(name, slot);
-                } else {
+                } else if ( line.startsWith( MODULE ) ){
                     String name = null;
                     String slot = "main";
 
-                    String[] parts = line.trim().split(":");
+                    String[] parts = line.substring( MODULE.length() ).trim().split(":");
                     name = parts[0];
                     if (parts.length > 1) {
                         slot = parts[1];
@@ -61,6 +67,8 @@ public class ModuleRewriteConf {
                         current = new ModuleRewriteRules(name, slot);
                         this.rules.put(name + ":" + slot, current);
                     }
+                } else {
+                    System.err.println( lineNumber + ":Lines should blank, or start with " + MODULE + " or " + OPTIONAL + ": " + line  );
                 }
             }
         }

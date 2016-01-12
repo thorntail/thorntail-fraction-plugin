@@ -147,7 +147,7 @@ public class GenerateMojo extends AbstractMojo {
                 //e.printStackTrace();
             }
         }
-        getLog().info("All Artifacts:  " + size / (1024 * 1024) + "mb");
+        getLog().info( this.project.getArtifactId() + ": total size:  " + fmt.format( size / ( 1024.0 * 1024.0 ) ) + " mb");
     }
 
     protected void loadRewriteRules() throws IOException {
