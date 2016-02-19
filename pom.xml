@@ -23,6 +23,8 @@
   <packaging>maven-plugin</packaging>
 
   <properties>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.source>1.8</maven.compiler.source>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-8</version.org.jboss.shrinkwrap.descriptors>
   </properties>
 
@@ -60,6 +62,14 @@
           <tagNameFormat>@{project.version}</tagNameFormat>
           <pushChanges>false</pushChanges>
           <preparationGoals>clean install</preparationGoals>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
         </configuration>
       </plugin>
     </plugins>
