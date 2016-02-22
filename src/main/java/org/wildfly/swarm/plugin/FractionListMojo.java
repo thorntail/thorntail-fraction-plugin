@@ -141,9 +141,16 @@ public class FractionListMojo extends AbstractMojo {
     }
 
     protected boolean isFraction(Dependency dep) {
+        if ( ! dep.getType().equals( "jar" ) ) {
+            return false;
+        }
+        if ( ! dep.getGroupId().equals( "org.wildfly.swarm" ) ) {
+            return false;
+        }
         ArtifactRequest req = new ArtifactRequest();
         org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion());
         req.setArtifact(artifact);
+        req.setRepositories( this.project.getRemoteProjectRepositories() );
 
         try {
             ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
