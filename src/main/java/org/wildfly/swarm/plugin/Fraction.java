@@ -28,11 +28,14 @@ public class Fraction {
 
     private final String artifactId;
 
+    private final String version;
+
     private final Set<Fraction> dependencies = new HashSet<>();
 
-    public Fraction(String groupId, String artifactId) {
+    public Fraction(String groupId, String artifactId, String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
+        this.version = version;
     }
 
     public String getGroupId() {
@@ -41,6 +44,10 @@ public class Fraction {
 
     public String getArtifactId() {
         return this.artifactId;
+    }
+
+    public String getVersion() {
+        return this.version;
     }
 
     public void addDependency(Fraction fraction) {
@@ -52,7 +59,7 @@ public class Fraction {
     }
 
     public String toString() {
-        return this.groupId + ":" + this.artifactId;
+        return this.groupId + ":" + this.artifactId + ":" + this.version;
     }
 
     public String getDependenciesString() {

@@ -102,7 +102,7 @@ public class FractionListMojo extends AbstractMojo {
         Map<String,Fraction> fractions = new HashMap<>();
 
         for (Dependency dependency : fractionsDependencies) {
-            fractions.put(dependency.getGroupId() + ":" + dependency.getArtifactId(), new Fraction(dependency.getGroupId(), dependency.getArtifactId()));
+            fractions.put(dependency.getGroupId() + ":" + dependency.getArtifactId(), new Fraction(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion()));
         }
 
         for ( Dependency dependency : fractionsDependencies ) {
