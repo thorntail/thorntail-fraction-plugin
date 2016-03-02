@@ -28,15 +28,34 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
 public class ModuleRewriteRules {
 
 
+    public ModuleRewriteRules(String name, String slot) {
+        this.name = name;
+        this.slot = slot;
+    }
+
+    public void makeOptional(String name, String slot) {
+        this.rules.add(new Optional(name, slot));
+    }
+
+    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
+        for (Rule rule : this.rules) {
+            rule.rewrite(desc);
+        }
+
+        return desc;
+    }
+
+    private final String name;
+
+    private final String slot;
+
+    private List<Rule> rules = new ArrayList<>();
+
     public abstract static class Rule {
         public abstract void rewrite(ModuleDescriptor desc);
     }
 
     public static class Optional extends Rule {
-        private String name;
-
-        private String slot;
-
         public Optional(String name, String slot) {
             this.name = name;
             this.slot = slot;
@@ -58,28 +77,9 @@ public class ModuleRewriteRules {
                 }
             }
         }
-    }
 
-    private final String name;
+        private String name;
 
-    private final String slot;
-
-    private List<Rule> rules = new ArrayList<>();
-
-    public ModuleRewriteRules(String name, String slot) {
-        this.name = name;
-        this.slot = slot;
-    }
-
-    public void makeOptional(String name, String slot) {
-        this.rules.add(new Optional(name, slot));
-    }
-
-    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
-        for (Rule rule : this.rules) {
-            rule.rewrite(desc);
-        }
-
-        return desc;
+        private String slot;
     }
 }

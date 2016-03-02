@@ -24,14 +24,6 @@ import java.util.stream.Collectors;
  */
 public class Fraction {
 
-    private final String groupId;
-
-    private final String artifactId;
-
-    private final String version;
-
-    private final Set<Fraction> dependencies = new HashSet<>();
-
     public Fraction(String groupId, String artifactId, String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
@@ -66,4 +58,12 @@ public class Fraction {
         return String.join(", ", this.dependencies.stream().map(e -> e.toString())
                 .collect(Collectors.toList()));
     }
+
+    private final String groupId;
+
+    private final String artifactId;
+
+    private final String version;
+
+    private final Set<Fraction> dependencies = new HashSet<>();
 }

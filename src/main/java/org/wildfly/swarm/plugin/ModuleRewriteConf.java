@@ -30,15 +30,34 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
  */
 public class ModuleRewriteConf {
 
-    private static final String MODULE = "module:";
-    private static final String OPTIONAL = "optional:";
-
-    private Map<String, ModuleRewriteRules> rules = new HashMap<>();
-
     public ModuleRewriteConf(Path file) throws IOException {
         if (Files.exists(file)) {
             load(file);
         }
+    }
+
+    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
+        String descName = desc.getName();
+        String descSlot = desc.getSlot();
+
+        if (descSlot == null) {
+            descSlot = "main";
+        }
+
+        ModuleRewriteRules rules = this.rules.get(descName + ":" + descSlot);
+        if (rules != null) {
+            desc = rules.rewrite(desc);
+        }
+
+        ModuleRewriteRules all = this.rules.get("ALL:ALL");
+
+        if (all != null) {
+            desc = all.rewrite(desc);
+        }
+
+        return desc;
+
+
     }
 
     protected void load(Path file) throws IOException {
@@ -53,7 +72,7 @@ public class ModuleRewriteConf {
             while ((line = in.readLine()) != null) {
                 ++lineNumber;
                 line = line.trim();
-                if ( line.isEmpty() ) {
+                if (line.isEmpty()) {
                     continue;
                 }
                 if (line.startsWith(OPTIONAL)) {
@@ -67,11 +86,11 @@ public class ModuleRewriteConf {
                     }
 
                     current.makeOptional(name, slot);
-                } else if ( line.startsWith( MODULE ) ){
+                } else if (line.startsWith(MODULE)) {
                     String name = null;
                     String slot = "main";
 
-                    String[] parts = line.substring( MODULE.length() ).trim().split(":");
+                    String[] parts = line.substring(MODULE.length()).trim().split(":");
                     name = parts[0];
                     if (parts.length > 1) {
                         slot = parts[1];
@@ -83,33 +102,15 @@ public class ModuleRewriteConf {
                         this.rules.put(name + ":" + slot, current);
                     }
                 } else {
-                    System.err.println( lineNumber + ":Lines should blank, or start with " + MODULE + " or " + OPTIONAL + ": " + line  );
+                    System.err.println(lineNumber + ":Lines should blank, or start with " + MODULE + " or " + OPTIONAL + ": " + line);
                 }
             }
         }
     }
 
-    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
-        String descName = desc.getName();
-        String descSlot = desc.getSlot();
+    private static final String MODULE = "module:";
 
-        if ( descSlot == null ) {
-            descSlot = "main";
-        }
+    private static final String OPTIONAL = "optional:";
 
-        ModuleRewriteRules rules = this.rules.get(descName +":" + descSlot );
-        if (rules != null) {
-            desc = rules.rewrite(desc);
-        }
-
-        ModuleRewriteRules all = this.rules.get( "ALL:ALL" );
-
-        if ( all != null ) {
-            desc = all.rewrite(desc);
-        }
-
-        return desc;
-
-
-    }
+    private Map<String, ModuleRewriteRules> rules = new HashMap<>();
 }

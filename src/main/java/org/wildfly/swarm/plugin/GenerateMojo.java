@@ -19,11 +19,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Writer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,7 +45,6 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import javax.inject.Inject;
-import javax.naming.directory.BasicAttribute;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Resource;
@@ -75,10 +72,7 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ResourcesType;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleAliasDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.spi.node.Node;
-import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptor;
-import org.jboss.shrinkwrap.descriptor.spi.node.NodeDescriptorExporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
-import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomDescriptorExporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 
 /**
@@ -93,36 +87,6 @@ import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
 public class GenerateMojo extends AbstractMojo {
-
-    private final static String MODULES_PREFIX = "modules/";
-
-    private final static String MODULES_LAYERS_PREFIX = MODULES_PREFIX + "system/layers/";
-
-    private final static String MODULES_SUFFIX = "/module.xml";
-
-
-    private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
-
-    @Component
-    private MavenProject project;
-
-    @Parameter(defaultValue = "${project.build.directory}")
-    private String projectBuildDir;
-
-    @Parameter(defaultValue = "${project.build.outputDirectory}")
-    private String projectOutputDir;
-
-    @Inject
-    private ArtifactResolver resolver;
-
-    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
-    protected DefaultRepositorySystemSession repositorySystemSession;
-
-    private Map<String, ModuleDescriptor> modules = new HashMap<>();
-
-    private ModuleRewriteConf rules;
-
-    private Set<String> allArtifacts = new HashSet<>();
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
@@ -154,7 +118,7 @@ public class GenerateMojo extends AbstractMojo {
                     long artifactSize = Files.size(file.toPath());
                     size += artifactSize;
                     //getLog().info( "Artifact: " + each + ":  " + fmt.format( artifactSize / ( 1024.0*1024.0) ) + "mb");
-                    getLog().info( String.format( "%100s %10s mb", each, fmt.format( artifactSize / (1024.0*1024.0) )));
+                    getLog().info(String.format("%100s %10s mb", each, fmt.format(artifactSize / (1024.0 * 1024.0))));
                 }
             } catch (ArtifactResolutionException e) {
                 //e.printStackTrace();
@@ -162,7 +126,7 @@ public class GenerateMojo extends AbstractMojo {
                 //e.printStackTrace();
             }
         }
-        getLog().info( this.project.getArtifactId() + ": total size:  " + fmt.format( size / ( 1024.0 * 1024.0 ) ) + " mb");
+        getLog().info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
     }
 
     protected void loadRewriteRules() throws IOException {
@@ -520,5 +484,34 @@ public class GenerateMojo extends AbstractMojo {
 
         }
     }
+
+    private final static String MODULES_PREFIX = "modules/";
+
+    private final static String MODULES_LAYERS_PREFIX = MODULES_PREFIX + "system/layers/";
+
+    private final static String MODULES_SUFFIX = "/module.xml";
+
+    private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
+
+    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
+    protected DefaultRepositorySystemSession repositorySystemSession;
+
+    @Component
+    private MavenProject project;
+
+    @Parameter(defaultValue = "${project.build.directory}")
+    private String projectBuildDir;
+
+    @Parameter(defaultValue = "${project.build.outputDirectory}")
+    private String projectOutputDir;
+
+    @Inject
+    private ArtifactResolver resolver;
+
+    private Map<String, ModuleDescriptor> modules = new HashMap<>();
+
+    private ModuleRewriteConf rules;
+
+    private Set<String> allArtifacts = new HashSet<>();
 
 }
