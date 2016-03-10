@@ -51,7 +51,11 @@ public class Fraction {
     }
 
     public String toString() {
-        return this.groupId + ":" + this.artifactId + ":" + this.version;
+        String artifactId = this.artifactId;
+        if ( artifactId.endsWith( "-api" ) ) {
+            artifactId = artifactId.substring( 0, artifactId.length() - 4 );
+        }
+        return this.groupId + ":" + artifactId + ":" + this.version;
     }
 
     public String getDependenciesString() {
