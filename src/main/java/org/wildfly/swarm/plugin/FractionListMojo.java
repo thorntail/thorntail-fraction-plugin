@@ -72,7 +72,9 @@ public class FractionListMojo extends AbstractMojo {
         List<Dependency> fractionsDependencies = new ArrayList<>();
 
         for (Dependency dependency : dependencies) {
+            System.err.println( "check: " + dependency );
             if (isFraction(dependency)) {
+                System.err.println( "+++++: " + dependency );
                 fractionsDependencies.add(dependency);
             }
         }
@@ -134,6 +136,9 @@ public class FractionListMojo extends AbstractMojo {
     }
 
     protected boolean isFraction(Dependency dep) {
+        return isFraction( dep, false );
+    }
+    protected boolean isFraction(Dependency dep, boolean tryApi) {
         if (!dep.getType().equals("jar")) {
             return false;
         }
@@ -141,7 +146,7 @@ public class FractionListMojo extends AbstractMojo {
             return false;
         }
         ArtifactRequest req = new ArtifactRequest();
-        org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + ":" + dep.getVersion());
+        org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + ( tryApi ? "-api" : "" )+ ":" + dep.getVersion());
         req.setArtifact(artifact);
         req.setRepositories(this.project.getRemoteProjectRepositories());
 
@@ -149,12 +154,16 @@ public class FractionListMojo extends AbstractMojo {
             ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
             if (artifactResult.isResolved()) {
                 File file = artifactResult.getArtifact().getFile();
-
                 JarFile jar = new JarFile(file);
 
                 ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
-
-                return (bootstrap != null);
+                if ( bootstrap != null ) {
+                    return true;
+                }
+                if ( ! tryApi ) {
+                    return isFraction( dep, true );
+                }
+                return false;
             }
         } catch (ArtifactResolutionException e) {
             // ignore
