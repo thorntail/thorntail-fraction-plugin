@@ -72,9 +72,7 @@ public class FractionListMojo extends AbstractMojo {
         List<Dependency> fractionsDependencies = new ArrayList<>();
 
         for (Dependency dependency : dependencies) {
-            System.err.println( "check: " + dependency );
             if (isFraction(dependency)) {
-                System.err.println( "+++++: " + dependency );
                 fractionsDependencies.add(dependency);
             }
         }
