@@ -388,7 +388,7 @@ public class GenerateMojo extends AbstractMojo {
     protected void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
         List<Resource> resources = this.project.getBuild().getResources();
         for (Resource each : resources) {
-            final Path modulesDir = Paths.get(each.getDirectory()).resolve("modules");
+            final Path modulesDir = Paths.get(this.project.getBasedir().getAbsolutePath(), each.getDirectory()).resolve("modules");
             if (Files.exists(modulesDir)) {
                 Files.walkFileTree(modulesDir, new SimpleFileVisitor<Path>() {
                     @Override
