@@ -182,8 +182,9 @@ public class GenerateMojo extends AbstractMojo {
 
                 if (name.equals("wildfly-feature-pack.xml")) {
                     featurePackXml = entry;
-                } else if (name.startsWith(MODULES_LAYERS_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    coreName = name.substring(MODULES_LAYERS_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                } else if (name.startsWith(MODULES_SYSTEM_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                    coreName = name.substring(MODULES_SYSTEM_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    coreName = coreName.substring(coreName.indexOf('/') + 1);
                     coreName = coreName.substring(coreName.indexOf('/') + 1);
                 } else if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
                     coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
@@ -364,8 +365,9 @@ public class GenerateMojo extends AbstractMojo {
                 ZipEntry each = entries.nextElement();
                 String name = each.getName();
                 String coreName = null;
-                if (name.startsWith(MODULES_LAYERS_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    coreName = name.substring(MODULES_LAYERS_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                if (name.startsWith(MODULES_SYSTEM_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
+                    coreName = name.substring(MODULES_SYSTEM_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
+                    coreName = coreName.substring(coreName.indexOf('/') + 1);
                     coreName = coreName.substring(coreName.indexOf('/') + 1);
                 } else if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
                     coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
@@ -487,7 +489,7 @@ public class GenerateMojo extends AbstractMojo {
 
     private final static String MODULES_PREFIX = "modules/";
 
-    private final static String MODULES_LAYERS_PREFIX = MODULES_PREFIX + "system/layers/";
+    private final static String MODULES_SYSTEM_PREFIX = MODULES_PREFIX + "system/";
 
     private final static String MODULES_SUFFIX = "/module.xml";
 
