@@ -181,7 +181,7 @@ public class FractionListMojo extends AbstractMojo {
     @Inject
     ProjectBuilder projectBuilder;
 
-    @Component
+    @Parameter(defaultValue="${project}", readonly = true)
     private MavenProject project;
 
     @Inject

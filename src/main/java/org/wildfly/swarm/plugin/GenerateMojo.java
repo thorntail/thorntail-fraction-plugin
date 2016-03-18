@@ -496,7 +496,7 @@ public class GenerateMojo extends AbstractMojo {
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
     protected DefaultRepositorySystemSession repositorySystemSession;
 
-    @Component
+    @Parameter(defaultValue="${project}", readonly = true)
     private MavenProject project;
 
     @Parameter(defaultValue = "${project.build.directory}")
