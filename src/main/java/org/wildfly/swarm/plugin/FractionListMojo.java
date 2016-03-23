@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
@@ -92,7 +93,7 @@ public class FractionListMojo extends AbstractMojo {
             try {
                 MavenProject fractionProject = project(dependency);
 
-                current.setDescription( fractionProject.getDescription() );
+                current.setDescription(fractionProject.getDescription());
 
                 Set<Artifact> deps = fractionProject.getArtifacts();
 
@@ -109,12 +110,12 @@ public class FractionListMojo extends AbstractMojo {
             }
         }
 
-        generateTxt( fractions );
-        generateJSON( fractions );
-        generateJavascript( fractions );
+        generateTxt(fractions);
+        generateJSON(fractions);
+        generateJavascript(fractions);
     }
 
-    protected void generateTxt(Map<String,Fraction> fractions) {
+    protected void generateTxt(Map<String, Fraction> fractions) {
 
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.txt");
 
@@ -130,9 +131,22 @@ public class FractionListMojo extends AbstractMojo {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
+                this.project.getGroupId(),
+                this.project.getArtifactId(),
+                this.project.getVersion(),
+                "compile",
+                "txt",
+                "",
+                new DefaultArtifactHandler("txt")
+        );
+
+        artifact.setFile(outFile);
+        this.project.addAttachedArtifact(artifact);
     }
 
-    protected  void generateJSON(Map<String,Fraction> fractions) {
+    protected void generateJSON(Map<String, Fraction> fractions) {
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -140,13 +154,26 @@ public class FractionListMojo extends AbstractMojo {
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.json");
 
         try {
-            mapper.writeValue( outFile , fractions );
+            mapper.writeValue(outFile, fractions);
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
+                this.project.getGroupId(),
+                this.project.getArtifactId(),
+                this.project.getVersion(),
+                "compile",
+                "json",
+                "",
+                new DefaultArtifactHandler("json")
+        );
+
+        artifact.setFile(outFile);
+        this.project.addAttachedArtifact(artifact);
     }
 
-    protected  void generateJavascript(Map<String,Fraction> fractions) {
+    protected void generateJavascript(Map<String, Fraction> fractions) {
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -155,12 +182,12 @@ public class FractionListMojo extends AbstractMojo {
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
 
         try {
-            FileWriter writer = new FileWriter( outFile );
+            FileWriter writer = new FileWriter(outFile);
 
-            writer.write( "fractionList = ");
+            writer.write("fractionList = ");
             writer.flush();
 
-            mapper.writeValue( writer , fractions );
+            mapper.writeValue(writer, fractions);
 
             writer.write(";");
             writer.flush();
@@ -168,6 +195,19 @@ public class FractionListMojo extends AbstractMojo {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
+                this.project.getGroupId(),
+                this.project.getArtifactId(),
+                this.project.getVersion(),
+                "compile",
+                "js",
+                "",
+                new DefaultArtifactHandler("js")
+        );
+
+        artifact.setFile(outFile);
+        this.project.addAttachedArtifact(artifact);
     }
 
     protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
@@ -184,8 +224,9 @@ public class FractionListMojo extends AbstractMojo {
     }
 
     protected boolean isFraction(Dependency dep) {
-        return isFraction( dep, false );
+        return isFraction(dep, false);
     }
+
     protected boolean isFraction(Dependency dep, boolean tryApi) {
         if (!dep.getType().equals("jar")) {
             return false;
@@ -194,7 +235,7 @@ public class FractionListMojo extends AbstractMojo {
             return false;
         }
         ArtifactRequest req = new ArtifactRequest();
-        org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + ( tryApi ? "-api" : "" )+ ":" + dep.getVersion());
+        org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + (tryApi ? "-api" : "") + ":" + dep.getVersion());
         req.setArtifact(artifact);
         req.setRepositories(this.project.getRemoteProjectRepositories());
 
@@ -205,11 +246,11 @@ public class FractionListMojo extends AbstractMojo {
                 JarFile jar = new JarFile(file);
 
                 ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
-                if ( bootstrap != null ) {
+                if (bootstrap != null) {
                     return true;
                 }
-                if ( ! tryApi ) {
-                    return isFraction( dep, true );
+                if (!tryApi) {
+                    return isFraction(dep, true);
                 }
                 return false;
             }
@@ -231,7 +272,7 @@ public class FractionListMojo extends AbstractMojo {
     @Inject
     ProjectBuilder projectBuilder;
 
-    @Parameter(defaultValue="${project}", readonly = true)
+    @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
     @Inject
