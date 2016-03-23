@@ -26,6 +26,7 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <maven.compiler.source>1.8</maven.compiler.source>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-8</version.org.jboss.shrinkwrap.descriptors>
+    <version.jackson>2.7.3</version.jackson>
   </properties>
 
   <scm>
@@ -69,6 +70,12 @@
       <groupId>org.jboss</groupId>
       <artifactId>jandex</artifactId>
       <version>2.0.1.Final</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${version.jackson}</version>
     </dependency>
 
     <!-- dependencies to annotations -->

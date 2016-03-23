@@ -28,6 +28,10 @@ import java.util.zip.ZipEntry;
 
 import javax.inject.Inject;
 
+import com.fasterxml.jackson.core.JsonEncoding;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
@@ -88,6 +92,8 @@ public class FractionListMojo extends AbstractMojo {
             try {
                 MavenProject fractionProject = project(dependency);
 
+                current.setDescription( fractionProject.getDescription() );
+
                 Set<Artifact> deps = fractionProject.getArtifacts();
 
                 for (Artifact each : deps) {
@@ -103,6 +109,13 @@ public class FractionListMojo extends AbstractMojo {
             }
         }
 
+        generateTxt( fractions );
+        generateJSON( fractions );
+        generateJavascript( fractions );
+    }
+
+    protected void generateTxt(Map<String,Fraction> fractions) {
+
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.txt");
 
         outFile.getParentFile().mkdirs();
@@ -117,7 +130,44 @@ public class FractionListMojo extends AbstractMojo {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    protected  void generateJSON(Map<String,Fraction> fractions) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.json");
+
+        try {
+            mapper.writeValue( outFile , fractions );
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    protected  void generateJavascript(Map<String,Fraction> fractions) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        mapper.enable(SerializationFeature.INDENT_OUTPUT);
+        mapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
+
+        File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
+
+        try {
+            FileWriter writer = new FileWriter( outFile );
+
+            writer.write( "fractionList = ");
+            writer.flush();
+
+            mapper.writeValue( writer , fractions );
+
+            writer.write(";");
+            writer.flush();
+            writer.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     protected MavenProject project(Dependency dependency) throws ProjectBuildingException {

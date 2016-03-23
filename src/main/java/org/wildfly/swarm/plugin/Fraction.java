@@ -19,6 +19,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * @author Bob McWhirter
  */
@@ -42,6 +44,14 @@ public class Fraction {
         return this.version;
     }
 
+    public String getDescription() {
+        return this.description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public void addDependency(Fraction fraction) {
         this.dependencies.add(fraction);
     }
@@ -58,6 +68,7 @@ public class Fraction {
         return this.groupId + ":" + artifactId + ":" + this.version;
     }
 
+    @JsonIgnore
     public String getDependenciesString() {
         return String.join(", ", this.dependencies.stream().map(e -> e.toString())
                 .collect(Collectors.toList()));
@@ -68,6 +79,8 @@ public class Fraction {
     private final String artifactId;
 
     private final String version;
+
+    private String description;
 
     private final Set<Fraction> dependencies = new HashSet<>();
 }
