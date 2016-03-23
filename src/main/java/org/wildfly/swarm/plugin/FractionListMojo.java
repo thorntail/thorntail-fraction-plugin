@@ -181,8 +181,7 @@ public class FractionListMojo extends AbstractMojo {
 
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
 
-        try {
-            FileWriter writer = new FileWriter(outFile);
+        try (FileWriter writer = new FileWriter(outFile)){
 
             writer.write("fractionList = ");
             writer.flush();
@@ -243,11 +242,11 @@ public class FractionListMojo extends AbstractMojo {
             ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
             if (artifactResult.isResolved()) {
                 File file = artifactResult.getArtifact().getFile();
-                JarFile jar = new JarFile(file);
-
-                ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
-                if (bootstrap != null) {
-                    return true;
+                try (JarFile jar = new JarFile(file)) {
+                    ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
+                    if (bootstrap != null) {
+                        return true;
+                    }
                 }
                 if (!tryApi) {
                     return isFraction(dep, true);
