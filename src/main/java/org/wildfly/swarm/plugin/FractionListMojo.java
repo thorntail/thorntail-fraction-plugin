@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
@@ -80,7 +81,7 @@ public class FractionListMojo extends AbstractMojo {
             }
         }
 
-        Map<String, Fraction> fractions = new HashMap<>();
+        Map<String, Fraction> fractions = new TreeMap<>();
 
         for (Dependency dependency : fractionsDependencies) {
             fractions.put(dependency.getGroupId() + ":" + dependency.getArtifactId(), new Fraction(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion()));
@@ -154,7 +155,7 @@ public class FractionListMojo extends AbstractMojo {
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.json");
 
         try {
-            mapper.writeValue(outFile, fractions);
+            mapper.writeValue(outFile, fractions.values());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -185,7 +186,7 @@ public class FractionListMojo extends AbstractMojo {
             writer.write("fractionList = ");
             writer.flush();
 
-            mapper.writeValue(writer, fractions);
+            mapper.writeValue(writer, fractions.values());
 
             writer.write(";");
             writer.flush();
