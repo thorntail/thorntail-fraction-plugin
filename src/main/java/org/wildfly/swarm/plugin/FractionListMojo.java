@@ -93,6 +93,7 @@ public class FractionListMojo extends AbstractMojo {
             try {
                 MavenProject fractionProject = project(dependency);
 
+                current.setName(fractionProject.getName());
                 current.setDescription(fractionProject.getDescription());
 
                 Set<Artifact> deps = fractionProject.getArtifacts();

@@ -44,6 +44,14 @@ public class Fraction {
         return this.version;
     }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
     public String getDescription() {
         return this.description;
     }
@@ -79,6 +87,8 @@ public class Fraction {
     private final String artifactId;
 
     private final String version;
+
+    private String name;
 
     private String description;
 
