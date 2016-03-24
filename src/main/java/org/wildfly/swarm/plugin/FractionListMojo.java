@@ -176,7 +176,6 @@ public class FractionListMojo extends AbstractMojo {
     protected void generateJavascript(Map<String, Fraction> fractions) {
         ObjectMapper mapper = new ObjectMapper();
 
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
         mapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
 
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
