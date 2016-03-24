@@ -72,6 +72,7 @@ public class Fraction {
         this.dependencies.add(fraction);
     }
 
+    @JsonIgnore
     public Set<Fraction> getDependencies() {
         return this.dependencies;
     }
