@@ -28,12 +28,10 @@ import java.util.zip.ZipEntry;
 
 import javax.inject.Inject;
 
-import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.handler.ArtifactHandler;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
@@ -95,6 +93,7 @@ public class FractionListMojo extends AbstractMojo {
 
                 current.setName(fractionProject.getName());
                 current.setDescription(fractionProject.getDescription());
+                current.setCategory(fractionProject.getProperties().getProperty(GENERATOR_CATEGORY_PROPERTY, DEFAULT_GENERATOR_CATEGORY));
 
                 Set<Artifact> deps = fractionProject.getArtifacts();
 
@@ -181,7 +180,7 @@ public class FractionListMojo extends AbstractMojo {
 
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
 
-        try (FileWriter writer = new FileWriter(outFile)){
+        try (FileWriter writer = new FileWriter(outFile)) {
 
             writer.write("fractionList = ");
             writer.flush();
@@ -261,6 +260,9 @@ public class FractionListMojo extends AbstractMojo {
 
         return false;
     }
+
+    private static final String GENERATOR_CATEGORY_PROPERTY = "swarm.generator.category";
+    private static final String DEFAULT_GENERATOR_CATEGORY = "";
 
     @Component
     protected RepositorySystem repoSystem;

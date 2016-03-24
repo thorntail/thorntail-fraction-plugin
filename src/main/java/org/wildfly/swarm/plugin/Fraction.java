@@ -56,6 +56,14 @@ public class Fraction {
         return this.description;
     }
 
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
     public void setDescription(String description) {
         this.description = description;
     }
@@ -91,6 +99,8 @@ public class Fraction {
     private String name;
 
     private String description;
+
+    private String category;
 
     private final Set<Fraction> dependencies = new HashSet<>();
 }
