@@ -25,6 +25,7 @@
   <properties>
     <maven.compiler.target>1.8</maven.compiler.target>
     <maven.compiler.source>1.8</maven.compiler.source>
+    <version.org.jboss.shrinkwrap>1.1.2</version.org.jboss.shrinkwrap>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-8</version.org.jboss.shrinkwrap.descriptors>
     <version.jackson>2.7.3</version.jackson>
   </properties>
@@ -106,6 +107,13 @@
       <scope>compile</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.jboss.shrinkwrap</groupId>
+      <artifactId>shrinkwrap-depchain</artifactId>
+      <version>${version.org.jboss.shrinkwrap}</version>
+      <type>pom</type>
+      <scope>compile</scope>
+    </dependency>
   </dependencies>
 
 </project>
