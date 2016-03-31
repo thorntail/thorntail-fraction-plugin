@@ -17,9 +17,19 @@ package org.wildfly.swarm.plugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import javax.inject.Inject;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.xml.JacksonXmlModule;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -28,8 +38,15 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.configuration.xml.XmlPlexusConfiguration;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.impl.ArtifactResolver;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * @author Bob McWhirter
@@ -45,11 +62,9 @@ import org.eclipse.aether.impl.ArtifactResolver;
 public class ProcessMojo extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-        getLog().info( "==== Bootstrap marker");
         executeBootstrapMarker();
-        getLog().info( "==== Module filler");
+        executeProvidedDependenciesGenerator();
         executeModuleFiller();
-        getLog().info( "==== Jandexer");
         executeJandexer();
     }
 
@@ -63,9 +78,23 @@ public class ProcessMojo extends AbstractMojo {
         try {
             bootstrapMarker.execute();
         } catch (IOException e) {
-            throw new MojoExecutionException( "Unable to execute bootstrap marker", e );
+            throw new MojoExecutionException("Unable to execute bootstrap marker", e);
         }
 
+    }
+
+
+    protected void executeProvidedDependenciesGenerator() throws MojoExecutionException {
+        ProvidedDependenciesGenerator generator = new ProvidedDependenciesGenerator(
+                getLog(),
+                this.project
+        );
+
+        try {
+            generator.execute();
+        } catch (ParserConfigurationException | IOException | SAXException  e) {
+            throw new MojoExecutionException( "Unable to execute provided dependencies", e );
+        }
     }
 
     protected void executeModuleFiller() throws MojoExecutionException {
@@ -93,7 +122,7 @@ public class ProcessMojo extends AbstractMojo {
         try {
             jandexer.execute();
         } catch (IOException e) {
-            throw new MojoExecutionException( "Unable to execute jandexer", e );
+            throw new MojoExecutionException("Unable to execute jandexer", e);
         }
     }
 
@@ -102,6 +131,7 @@ public class ProcessMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
+
 
     @Inject
     private ArtifactResolver resolver;
