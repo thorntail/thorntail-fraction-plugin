@@ -18,13 +18,12 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
 import javax.inject.Inject;
@@ -35,26 +34,16 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
-import org.apache.maven.repository.RepositorySystem;
-import org.eclipse.aether.DefaultRepositorySystemSession;
-import org.eclipse.aether.artifact.DefaultArtifact;
-import org.eclipse.aether.impl.ArtifactResolver;
-import org.eclipse.aether.resolution.ArtifactRequest;
-import org.eclipse.aether.resolution.ArtifactResolutionException;
-import org.eclipse.aether.resolution.ArtifactResult;
 
 /**
  * @author Bob McWhirter
@@ -67,28 +56,23 @@ import org.eclipse.aether.resolution.ArtifactResult;
         requiresDependencyCollection = ResolutionScope.COMPILE,
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
-public class FractionListMojo extends AbstractMojo {
+public class FractionListMojo extends AbstractExposedComponentsMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
-        List<Dependency> dependencies = this.project.getDependencyManagement().getDependencies();
+        List<Dependency> dependencies = bomDependencies();
 
-        List<Dependency> fractionsDependencies = new ArrayList<>();
-
-        for (Dependency dependency : dependencies) {
-            if (isFraction(dependency)) {
-                fractionsDependencies.add(dependency);
-            }
-        }
+        List<Dependency> fractionsDependencies = bomDependencies().stream()
+                .filter(this::isFraction)
+                .collect(Collectors.toList());
 
         Map<String, Fraction> fractions = new TreeMap<>();
+        fractionsDependencies.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
+                                                         new Fraction(d.getGroupId(), d.getArtifactId(), d.getVersion())));
 
-        for (Dependency dependency : fractionsDependencies) {
-            fractions.put(dependency.getGroupId() + ":" + dependency.getArtifactId(), new Fraction(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion()));
-        }
+        fractionsDependencies.forEach(dependency -> {
+            final Fraction current = fractions.get(dependency.getGroupId() + ":" + dependency.getArtifactId());
 
-        for (Dependency dependency : fractionsDependencies) {
-            Fraction current = fractions.get(dependency.getGroupId() + ":" + dependency.getArtifactId());
             try {
                 MavenProject fractionProject = project(dependency);
 
@@ -109,7 +93,7 @@ public class FractionListMojo extends AbstractMojo {
             } catch (ProjectBuildingException e) {
                 e.printStackTrace();
             }
-        }
+        });
 
         generateTxt(fractions);
         generateJSON(fractions);
@@ -214,10 +198,14 @@ public class FractionListMojo extends AbstractMojo {
         request.setProcessPlugins(false);
         request.setSystemProperties(System.getProperties());
         request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
-        request.setRepositorySession(repositorySystemSession);
+        request.setRepositorySession(this.repositorySystemSession);
         request.setResolveDependencies(true);
-        org.apache.maven.artifact.Artifact artifact = new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), "compile", "", "", new DefaultArtifactHandler());
+        org.apache.maven.artifact.Artifact artifact =
+                new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(),
+                                                              dependency.getVersion(), "compile", "", "",
+                                                              new DefaultArtifactHandler());
         MavenProject project = projectBuilder.build(artifact, request).getProject();
+
         return project;
 
     }
@@ -233,15 +221,11 @@ public class FractionListMojo extends AbstractMojo {
         if (!dep.getGroupId().equals("org.wildfly.swarm")) {
             return false;
         }
-        ArtifactRequest req = new ArtifactRequest();
-        org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(dep.getGroupId() + ":" + dep.getArtifactId() + (tryApi ? "-api" : "") + ":" + dep.getVersion());
-        req.setArtifact(artifact);
-        req.setRepositories(this.project.getRemoteProjectRepositories());
 
         try {
-            ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
-            if (artifactResult.isResolved()) {
-                File file = artifactResult.getArtifact().getFile();
+            final File file = resolveArtifact(dep.getGroupId(), dep.getArtifactId() + (tryApi ? "-api" : ""),
+                                              dep.getVersion(), "", "jar");
+            if (file != null) {
                 try (JarFile jar = new JarFile(file)) {
                     ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
                     if (bootstrap != null) {
@@ -253,9 +237,7 @@ public class FractionListMojo extends AbstractMojo {
                 }
                 return false;
             }
-        } catch (ArtifactResolutionException e) {
-            // ignore
-        } catch (IOException e) {
+        } catch (ArtifactResolutionRuntimeException | IOException e) {
             // ignore
         }
 
@@ -265,18 +247,6 @@ public class FractionListMojo extends AbstractMojo {
     private static final String GENERATOR_CATEGORY_PROPERTY = "swarm.generator.category";
     private static final String DEFAULT_GENERATOR_CATEGORY = "";
 
-    @Component
-    protected RepositorySystem repoSystem;
-
-    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
-    protected DefaultRepositorySystemSession repositorySystemSession;
-
     @Inject
     ProjectBuilder projectBuilder;
-
-    @Parameter(defaultValue = "${project}", readonly = true)
-    private MavenProject project;
-
-    @Inject
-    private ArtifactResolver resolver;
 }

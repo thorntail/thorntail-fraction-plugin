@@ -21,8 +21,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 
+import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
@@ -35,16 +35,12 @@ public class BomMojo extends AbstractExposedComponentsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final Map<String, String> versions = parseModules();
-
-        final Map<String, List<ExposedComponent>> componentMap = resolveComponents(versions);
-
-        verifyBomDependencies(BomBuilder.dependenciesList(versions, componentMap));
+        verifyBomDependencies();
 
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
             Files.write(bomPath,
-                        BomBuilder.generateBOM(readTemplate(), versions, componentMap).getBytes());
+                        BomBuilder.generateBOM(readTemplate(), parsedModules(), resolvedComponents()).getBytes());
         } catch (IOException e) {
             throw new MojoFailureException("Failed to write bom.pom", e);
         }
@@ -52,13 +48,12 @@ public class BomMojo extends AbstractExposedComponentsMojo {
         getLog().info(String.format("Wrote bom to %s", bomPath));
     }
 
-    protected void verifyBomDependencies(final List<String> deps) throws MojoFailureException {
-        for (String dep : deps) {
-            final String[] parts = dep.split(":");
+    protected void verifyBomDependencies() throws MojoFailureException {
+        for (Dependency dep : bomDependencies()) {
             try {
-                resolveArtifact(parts[0], parts[1], parts[2], null, "pom");
+                resolveArtifact(dep.getGroupId(), dep.getArtifactId(), dep.getVersion(), null, "pom");
             } catch (ArtifactResolutionRuntimeException e) {
-                throw new MojoFailureException(String.format("%s does not resolvable", dep), e.getCause());
+                throw new MojoFailureException(String.format("%s is not resolvable", dep), e.getCause());
             }
         }
     }

@@ -34,15 +34,13 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 public class DocPrepMojo extends AbstractExposedComponentsMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final Map<String, String> versions = parseModules();
-        final Map<String, List<ExposedComponent>> components = resolveComponents(versions);
         final List<File> sourceArtifacts;
         try {
-            sourceArtifacts = versions.keySet().stream()
-                    .flatMap(module -> components.get(module).stream()
+            sourceArtifacts = parsedModules().keySet().stream()
+                    .flatMap(module -> resolvedComponents().get(module).stream()
                             .filter(d -> d.doc != null)
                             .map(d -> {
-                                return resolveArtifact(BomBuilder.SWARM_GROUP, d.doc, versions.get(module), "sources", "jar");
+                                return resolveArtifact(BomBuilder.SWARM_GROUP, d.doc, parsedModules().get(module), "sources", "jar");
                             }))
                     .collect(Collectors.toList());
         } catch (ArtifactResolutionRuntimeException e){

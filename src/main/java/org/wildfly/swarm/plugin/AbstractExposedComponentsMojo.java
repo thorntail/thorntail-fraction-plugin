@@ -28,6 +28,7 @@ import javax.inject.Inject;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -108,21 +109,22 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
         return builder.build();
     }
 
-    protected Map<String, String> parseModules() {
-        final Map<String, String> versions = new HashMap<>();
-        this.modules.forEach(c -> {
-            String[] parts = c.split(":");
-            versions.put(parts[0], parts[1]);
-        });
+    protected Map<String, String> parsedModules() {
+        if (this.versions.isEmpty()) {
+            this.modules.forEach(c -> {
+                String[] parts = c.split(":");
+                this.versions.put(parts[0], parts[1]);
+            });
+        }
 
-        return versions;
+        return this.versions;
     }
 
-    protected Map<String, List<ExposedComponent>> resolveComponents(final Map<String, String> versions) {
-        final Map<String, List<ExposedComponent>> componentMap = new HashMap<>();
-        versions.forEach((k, v) -> componentMap.put(k, resolveComponentDescriptor(k, v)));
-
-        return componentMap;
+    protected Map<String, List<ExposedComponent>> resolvedComponents() {
+        if (this.components.isEmpty()) {
+            parsedModules().forEach((k, v) -> this.components.put(k, resolveComponentDescriptor(k, v)));
+        }
+        return this.components;
     }
 
     protected List<ExposedComponent> resolveComponentDescriptor(final String name, final String version) {
@@ -141,11 +143,27 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
         }
     }
 
+    protected Dependency gavToDependency(final String gav) {
+        final String[] parts = gav.split(":");
+        final Dependency dep = new Dependency();
+        dep.setGroupId(parts[0]);
+        dep.setArtifactId(parts[1]);
+        dep.setVersion(parts[2]);
+
+        return dep;
+    }
+
+    protected List<Dependency> bomDependencies() {
+        return BomBuilder.dependenciesList(parsedModules(), resolvedComponents()).stream()
+                .map(this::gavToDependency)
+                .collect(Collectors.toList());
+    }
+
     @Parameter(defaultValue = "${project}", readonly = true)
     protected MavenProject project;
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
-    private DefaultRepositorySystemSession repositorySystemSession;
+    protected DefaultRepositorySystemSession repositorySystemSession;
 
     @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
     private List<ArtifactRepository> remoteRepositories;
@@ -158,6 +176,10 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
 
     @Parameter
     private List<String> modules = new ArrayList<>();
+
+    private Map<String, String> versions = new HashMap<>();
+
+    private Map<String, List<ExposedComponent>> components = new HashMap<>();
 
     static class ArtifactResolutionRuntimeException extends RuntimeException {
         public ArtifactResolutionRuntimeException(ArtifactResolutionException cause) {
