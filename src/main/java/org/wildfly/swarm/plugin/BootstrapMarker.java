@@ -19,6 +19,8 @@ import org.apache.maven.project.MavenProject;
  */
 public class BootstrapMarker {
 
+    public static final String BOOTSTRAP_PROPERTY = "swarm.fraction.bootstrap";
+
     public static final String BOOTSTRAP_MARKER = "wildfly-swarm-bootstrap.conf";
 
     public BootstrapMarker(Log log,
@@ -28,46 +30,64 @@ public class BootstrapMarker {
     }
 
     public void execute() throws IOException {
+
+        String pomBootstrap = this.project.getProperties().getProperty(BOOTSTRAP_PROPERTY);
+
         Path src = Paths.get(this.project.getBuild().getSourceDirectory());
 
-        if (!Files.exists(src)) {
+        if (!Files.exists(src) && pomBootstrap == null) {
             return;
         }
 
-        Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.getFileName().toString().endsWith("Fraction.java")) {
-                    fraction = file;
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-
-        for (Resource dir : this.project.getBuild().getResources()) {
-            Path dirPath = Paths.get( dir.getDirectory() );
-            if ( Files.exists( dirPath ) && Files.isDirectory( dirPath ) ) {
-                Files.walkFileTree(dirPath, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        if (file.getFileName().toString().equals(BOOTSTRAP_MARKER)) {
-                            bootstrapMarkerFound = true;
-                        }
-                        return FileVisitResult.CONTINUE;
+        if ( Files.exists(src) ) {
+            Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().endsWith("Fraction.java")) {
+                        fraction = file;
                     }
-                });
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            for (Resource dir : this.project.getBuild().getResources()) {
+                Path dirPath = Paths.get(dir.getDirectory());
+                if (Files.exists(dirPath) && Files.isDirectory(dirPath)) {
+                    Files.walkFileTree(dirPath, new SimpleFileVisitor<Path>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            if (file.getFileName().toString().equals(BOOTSTRAP_MARKER)) {
+                                bootstrapMarkerFound = true;
+                            }
+                            return FileVisitResult.CONTINUE;
+                        }
+                    });
+                }
             }
         }
 
-        if (!this.bootstrapMarkerFound && this.fraction != null) {
-            createBootstrapMarker();
+        if ( this.bootstrapMarkerFound ) {
+            if ( pomBootstrap != null ) {
+                this.log.warn("Both a file named " + BOOTSTRAP_MARKER + " and the property " + BOOTSTRAP_PROPERTY + " were set.  Ignoring property, preferring file");
+            }
+            return;
+        }
+
+        if ( this.fraction != null || pomBootstrap != null ) {
+            createBootstrapMarker(pomBootstrap);
         }
     }
 
-    private void createBootstrapMarker() throws IOException {
-        Path path = Paths.get(this.project.getBuild().getSourceDirectory()).relativize(this.fraction).getParent();
+    private void createBootstrapMarker(String moduleName) throws IOException {
+        if ( moduleName == null ) {
+            Path path = Paths.get(this.project.getBuild().getSourceDirectory()).relativize(this.fraction).getParent();
+            moduleName = path.toString().replaceAll(File.separator, ".");
+            this.log.info( "Using " + moduleName + " as conventional bootstrap module name" );
+        }
 
-        String moduleName = path.toString().replaceAll(File.separator, ".");
+        if ( moduleName.equalsIgnoreCase( "true" ) ) {
+            moduleName = "";
+        }
 
         try (FileWriter writer = new FileWriter(new File(this.project.getBuild().getOutputDirectory(), BOOTSTRAP_MARKER))) {
             writer.write(moduleName);
