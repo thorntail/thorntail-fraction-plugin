@@ -16,9 +16,6 @@
 package org.wildfly.swarm.plugin;
 
 import java.io.File;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -34,27 +31,21 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 public class DocPrepMojo extends AbstractExposedComponentsMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final List<File> sourceArtifacts;
+        this.sourceOutputDir.mkdirs();
+
         try {
-            sourceArtifacts = parsedModules().keySet().stream()
-                    .flatMap(module -> resolvedComponents().get(module).stream()
+            parsedModules().keySet()
+                    .forEach(module -> resolvedComponents().get(module).stream()
                             .filter(d -> d.doc != null)
-                            .map(d -> {
-                                return resolveArtifact(BomBuilder.SWARM_GROUP, d.doc, parsedModules().get(module), "sources", "jar");
-                            }))
-                    .collect(Collectors.toList());
+                            .forEach(d -> ShrinkWrap.createFromZipFile(JavaArchive.class,
+                                                                       resolveArtifact(BomBuilder.SWARM_GROUP, d.doc,
+                                                                                       parsedModules().get(module),
+                                                                                       "sources", "jar"))
+                                    .as(ExplodedExporter.class)
+                                    .exportExploded(this.sourceOutputDir, module)));
         } catch (ArtifactResolutionRuntimeException e){
             throw new MojoFailureException("Failed to resolve sources artifact", e.getCause());
         }
-
-        this.sourceOutputDir.mkdirs();
-
-        for (File each : sourceArtifacts) {
-            ShrinkWrap.createFromZipFile(JavaArchive.class, each)
-                    .as(ExplodedExporter.class)
-                    .exportExploded(this.sourceOutputDir, ".");
-        }
-
     }
 
     @Parameter
