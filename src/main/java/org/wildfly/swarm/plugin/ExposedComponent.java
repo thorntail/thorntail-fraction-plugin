@@ -18,17 +18,32 @@ package org.wildfly.swarm.plugin;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 
 public class ExposedComponent {
 
     public static List<ExposedComponent> parseDescriptor(final URL content) {
         try {
             final ObjectMapper mapper = new ObjectMapper();
+            final TypeFactory typeFactory = mapper.getTypeFactory();
+            final Map<String, List<ExposedComponent>> components =
+                    mapper.readValue(content,
+                                     typeFactory.constructMapType(Map.class,
+                                                                  typeFactory.constructType(String.class),
+                                                                  typeFactory.constructCollectionType(List.class, ExposedComponent.class)));
+            final String moduleName = components.keySet().stream().findFirst().orElse(null);
 
-            return mapper.readValue(content, mapper.getTypeFactory()
-                    .constructCollectionType(List.class, ExposedComponent.class));
+            return components.get(moduleName).stream()
+                    .map(c -> {
+                        c.moduleName = moduleName;
+
+                        return c;
+                    })
+                    .collect(Collectors.toList());
         } catch (IOException e) {
             throw new RuntimeException("Failed to parse descriptor", e);
         }
@@ -36,5 +51,6 @@ public class ExposedComponent {
 
     public String name = null;
     public String doc = null;
+    public String moduleName = null;
     public boolean bom = true;
 }

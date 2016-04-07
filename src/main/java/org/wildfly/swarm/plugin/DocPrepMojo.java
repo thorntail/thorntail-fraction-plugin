@@ -42,7 +42,7 @@ public class DocPrepMojo extends AbstractExposedComponentsMojo {
                                                                                        parsedModules().get(module),
                                                                                        "sources", "jar"))
                                     .as(ExplodedExporter.class)
-                                    .exportExploded(this.sourceOutputDir, module)));
+                                    .exportExploded(this.sourceOutputDir, d.moduleName)));
         } catch (ArtifactResolutionRuntimeException e){
             throw new MojoFailureException("Failed to resolve sources artifact", e.getCause());
         }
