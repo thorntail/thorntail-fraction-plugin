@@ -56,12 +56,20 @@ public class Fraction {
         return this.description;
     }
 
-    public String getCategory() {
-        return category;
+    public String getTags() {
+        return tags;
     }
 
-    public void setCategory(String category) {
-        this.category = category;
+    public void setTags(String tags) {
+        this.tags = tags;
+    }
+
+    public boolean isInternal() {
+        return internal;
+    }
+
+    public void setInternal(boolean internal) {
+        this.internal = internal;
     }
 
     public void setDescription(String description) {
@@ -101,7 +109,9 @@ public class Fraction {
 
     private String description;
 
-    private String category;
+    private String tags;
+
+    private boolean internal;
 
     private final Set<Fraction> dependencies = new HashSet<>();
 }

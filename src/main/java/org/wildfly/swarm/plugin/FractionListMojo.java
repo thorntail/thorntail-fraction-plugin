@@ -20,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.jar.JarFile;
@@ -58,6 +59,12 @@ import org.apache.maven.project.ProjectBuildingRequest;
 )
 public class FractionListMojo extends AbstractExposedComponentsMojo {
 
+    private static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
+    private static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
+
+    @Inject
+    ProjectBuilder projectBuilder;
+
     public void execute() throws MojoExecutionException, MojoFailureException {
 
         List<Dependency> dependencies = bomDependencies();
@@ -78,7 +85,9 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
 
                 current.setName(fractionProject.getName());
                 current.setDescription(fractionProject.getDescription());
-                current.setCategory(fractionProject.getProperties().getProperty(GENERATOR_CATEGORY_PROPERTY, DEFAULT_GENERATOR_CATEGORY));
+                Properties properties = fractionProject.getProperties();
+                current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
+                current.setInternal(Boolean.valueOf(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
 
                 Set<Artifact> deps = fractionProject.getArtifacts();
 
@@ -243,10 +252,4 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
 
         return false;
     }
-
-    private static final String GENERATOR_CATEGORY_PROPERTY = "swarm.generator.category";
-    private static final String DEFAULT_GENERATOR_CATEGORY = "";
-
-    @Inject
-    ProjectBuilder projectBuilder;
 }
