@@ -87,7 +87,7 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
                 current.setDescription(fractionProject.getDescription());
                 Properties properties = fractionProject.getProperties();
                 current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
-                current.setInternal(Boolean.valueOf(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
+                current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
 
                 Set<Artifact> deps = fractionProject.getArtifacts();
 
