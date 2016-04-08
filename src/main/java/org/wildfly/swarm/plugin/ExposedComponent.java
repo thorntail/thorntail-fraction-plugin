@@ -25,32 +25,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 
 public class ExposedComponent {
-
-    public static List<ExposedComponent> parseDescriptor(final URL content) {
-        try {
-            final ObjectMapper mapper = new ObjectMapper();
-            final TypeFactory typeFactory = mapper.getTypeFactory();
-            final Map<String, List<ExposedComponent>> components =
-                    mapper.readValue(content,
-                                     typeFactory.constructMapType(Map.class,
-                                                                  typeFactory.constructType(String.class),
-                                                                  typeFactory.constructCollectionType(List.class, ExposedComponent.class)));
-            final String moduleName = components.keySet().stream().findFirst().orElse(null);
-
-            return components.get(moduleName).stream()
-                    .map(c -> {
-                        c.moduleName = moduleName;
-
-                        return c;
-                    })
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to parse descriptor", e);
-        }
+    public boolean isBom() {
+        return bom;
     }
 
-    public String name = null;
-    public String doc = null;
-    public String moduleName = null;
-    public boolean bom = true;
+    public String doc() {
+        return doc;
+    }
+
+    public String name() {
+        return name;
+    }
+
+    public void setBom(boolean bom) {
+        this.bom = bom;
+    }
+
+    public void setDoc(String doc) {
+        this.doc = doc;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    private String name = null;
+    private String doc = null;
+    private boolean bom = true;
 }

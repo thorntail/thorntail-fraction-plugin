@@ -120,14 +120,14 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
         return this.versions;
     }
 
-    protected Map<String, List<ExposedComponent>> resolvedComponents() {
+    protected List<ExposedComponents> resolvedComponents() {
         if (this.components.isEmpty()) {
-            parsedModules().forEach((k, v) -> this.components.put(k, resolveComponentDescriptor(k, v)));
+            parsedModules().forEach((k, v) -> this.components.add(resolveComponentDescriptor(k, v)));
         }
         return this.components;
     }
 
-    protected List<ExposedComponent> resolveComponentDescriptor(final String name, final String version) {
+    protected ExposedComponents resolveComponentDescriptor(final String name, final String version) {
         File descriptorFile = null;
         try {
             descriptorFile = resolveArtifact(BomBuilder.SWARM_GROUP, name, version, "exposed-components", "json");
@@ -137,7 +137,7 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
         }
 
         try {
-            return descriptorFile != null ? ExposedComponent.parseDescriptor(descriptorFile.toURI().toURL()) : null;
+            return descriptorFile != null ? ExposedComponents.parseDescriptor(version, descriptorFile.toURI().toURL()) : null;
         } catch (MalformedURLException e) {
             throw new RuntimeException(String.format("Failed to read exposed-components.json for %s:%s", name, version), e);
         }
@@ -154,7 +154,7 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
     }
 
     protected List<Dependency> bomDependencies() {
-        return BomBuilder.dependenciesList(parsedModules(), resolvedComponents()).stream()
+        return BomBuilder.dependenciesList(resolvedComponents()).stream()
                 .map(this::gavToDependency)
                 .collect(Collectors.toList());
     }
@@ -179,7 +179,7 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
 
     private Map<String, String> versions = new HashMap<>();
 
-    private Map<String, List<ExposedComponent>> components = new HashMap<>();
+    private List<ExposedComponents> components = new ArrayList<>();
 
     static class ArtifactResolutionRuntimeException extends RuntimeException {
         public ArtifactResolutionRuntimeException(ArtifactResolutionException cause) {

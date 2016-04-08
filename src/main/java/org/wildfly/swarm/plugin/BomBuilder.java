@@ -25,20 +25,18 @@ public class BomBuilder {
     public static final String SWARM_GROUP = "org.wildfly.swarm";
 
     public static String generateBOM(final String template,
-                                     final Map<String, String> versions,
-                                     final Map<String, List<ExposedComponent>> components) {
+                                     final List<ExposedComponents> components) {
         return template.replace("#{dependencies}",
-                                String.join("\n", dependenciesList(versions, components).stream()
+                                String.join("\n", dependenciesList(components).stream()
                                         .map(BomBuilder::pomGav)
                                         .collect(Collectors.toList())));
     }
 
-    public static List<String> dependenciesList(final Map<String, String> versions,
-                                                final Map<String, List<ExposedComponent>> components) {
-        return versions.keySet().stream()
-                .flatMap(module -> components.get(module).stream()
-                        .filter(d -> d.bom)
-                        .map(d -> gav(d.name, versions.get(module))))
+    public static List<String> dependenciesList(final List<ExposedComponents> components) {
+        return components.stream()
+                .flatMap(ec -> ec.components().stream()
+                        .filter(d -> d.isBom())
+                        .map(d -> gav(d.name(), ec.version())))
                 .collect(Collectors.toList());
 
     }

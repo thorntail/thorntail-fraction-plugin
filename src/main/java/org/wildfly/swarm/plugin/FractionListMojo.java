@@ -67,8 +67,6 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
-        List<Dependency> dependencies = bomDependencies();
-
         List<Dependency> fractionsDependencies = bomDependencies().stream()
                 .filter(this::isFraction)
                 .collect(Collectors.toList());

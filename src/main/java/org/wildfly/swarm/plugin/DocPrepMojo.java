@@ -16,6 +16,9 @@
 package org.wildfly.swarm.plugin;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -34,16 +37,18 @@ public class DocPrepMojo extends AbstractExposedComponentsMojo {
         this.sourceOutputDir.mkdirs();
 
         try {
-            parsedModules().keySet()
-                    .forEach(module -> resolvedComponents().get(module).stream()
-                            .filter(d -> d.doc != null)
-                            .forEach(d -> ShrinkWrap.createFromZipFile(JavaArchive.class,
-                                                                       resolveArtifact(BomBuilder.SWARM_GROUP, d.doc,
-                                                                                       parsedModules().get(module),
-                                                                                       "sources", "jar"))
-                                    .as(ExplodedExporter.class)
-                                    .exportExploded(this.sourceOutputDir, d.moduleName)));
-        } catch (ArtifactResolutionRuntimeException e){
+            for(final ExposedComponents ecs : resolvedComponents()) {
+                ecs.components().stream()
+                        .filter(d -> d.doc() != null)
+                        .forEach(d -> ShrinkWrap.createFromZipFile(JavaArchive.class,
+                                                                   resolveArtifact(BomBuilder.SWARM_GROUP, d.doc(),
+                                                                                   ecs.version(), "sources", "jar"))
+                                .as(ExplodedExporter.class)
+                                .exportExploded(this.sourceOutputDir, ecs.name()));
+
+                Files.write(Paths.get(this.sourceOutputDir.getAbsolutePath(), ecs.name(), "_version"), ecs.version().getBytes());
+            }
+        } catch (ArtifactResolutionRuntimeException | IOException e){
             throw new MojoFailureException("Failed to resolve sources artifact", e.getCause());
         }
     }

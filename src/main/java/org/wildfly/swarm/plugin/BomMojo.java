@@ -40,7 +40,7 @@ public class BomMojo extends AbstractExposedComponentsMojo {
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
             Files.write(bomPath,
-                        BomBuilder.generateBOM(readTemplate(), parsedModules(), resolvedComponents()).getBytes());
+                        BomBuilder.generateBOM(readTemplate(), resolvedComponents()).getBytes());
         } catch (IOException e) {
             throw new MojoFailureException("Failed to write bom.pom", e);
         }
