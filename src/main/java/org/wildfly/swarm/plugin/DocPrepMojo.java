@@ -18,6 +18,7 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import org.apache.maven.plugin.MojoExecutionException;
@@ -38,6 +39,9 @@ public class DocPrepMojo extends AbstractExposedComponentsMojo {
 
         try {
             for(final ExposedComponents ecs : resolvedComponents()) {
+                final File srcDir = new File(this.sourceOutputDir, ecs.name());
+                srcDir.mkdirs();
+
                 ecs.components().stream()
                         .filter(d -> d.doc() != null)
                         .forEach(d -> ShrinkWrap.createFromZipFile(JavaArchive.class,
@@ -46,10 +50,13 @@ public class DocPrepMojo extends AbstractExposedComponentsMojo {
                                 .as(ExplodedExporter.class)
                                 .exportExploded(this.sourceOutputDir, ecs.name()));
 
-                Files.write(Paths.get(this.sourceOutputDir.getAbsolutePath(), ecs.name(), "_version"), ecs.version().getBytes());
+                if (srcDir.listFiles().length > 0) {
+                    Files.write(Paths.get(srcDir.getAbsolutePath(), "_version"),
+                                ecs.version().getBytes());
+                }
             }
         } catch (ArtifactResolutionRuntimeException | IOException e){
-            throw new MojoFailureException("Failed to resolve sources artifact", e.getCause());
+            throw new MojoFailureException("Failed to resolve sources artifact", e);
         }
     }
 

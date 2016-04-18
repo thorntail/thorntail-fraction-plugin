@@ -84,7 +84,8 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
                 result = resolver.resolveArtifact(this.repositorySystemSession,
                                                   new ArtifactRequest(artifact, aetherRepos, null));
             } catch (ArtifactResolutionException e) {
-                throw new ArtifactResolutionRuntimeException(e);
+                throw new ArtifactResolutionRuntimeException(String.format("%s:%s:%s:%s:%s", group, name, version,
+                                                                           classifier, type), e);
             }
             if (result.isResolved()) {
                 file = result.getArtifact().getFile();
@@ -182,8 +183,8 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
     private List<ExposedComponents> components = new ArrayList<>();
 
     static class ArtifactResolutionRuntimeException extends RuntimeException {
-        public ArtifactResolutionRuntimeException(ArtifactResolutionException cause) {
-            super(cause);
+        public ArtifactResolutionRuntimeException(String gav, ArtifactResolutionException cause) {
+            super(String.format("%s for: %s", cause.getMessage(), gav), cause);
         }
     }
 }
