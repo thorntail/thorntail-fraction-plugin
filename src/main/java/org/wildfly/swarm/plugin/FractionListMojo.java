@@ -18,6 +18,7 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -65,9 +66,19 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
     @Inject
     ProjectBuilder projectBuilder;
 
+    private Set<String> testedGAVs = new HashSet<>();
+
     public void execute() throws MojoExecutionException, MojoFailureException {
 
         List<Dependency> fractionsDependencies = bomDependencies().stream()
+                .sorted( (l,r)->{
+                    int result = l.getGroupId().compareTo( r.getGroupId() );
+                    if ( result != 0 ) {
+                        return result;
+                    }
+
+                    return l.getArtifactId().compareTo(r.getArtifactId());
+                })
                 .filter(this::isFraction)
                 .collect(Collectors.toList());
 
@@ -229,9 +240,17 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
             return false;
         }
 
+        String groupId = dep.getGroupId();
+        String artifactId = dep.getArtifactId() + ( tryApi ? "-api" : "" );
+
+        if ( this.testedGAVs.contains( groupId + ":" + artifactId ) ) {
+            return false;
+        }
+
+        this.testedGAVs.add( groupId + ":" + artifactId );
+
         try {
-            final File file = resolveArtifact(dep.getGroupId(), dep.getArtifactId() + (tryApi ? "-api" : ""),
-                                              dep.getVersion(), "", "jar");
+            final File file = resolveArtifact(groupId, artifactId, dep.getVersion(), "", "jar");
             if (file != null) {
                 try (JarFile jar = new JarFile(file)) {
                     ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
