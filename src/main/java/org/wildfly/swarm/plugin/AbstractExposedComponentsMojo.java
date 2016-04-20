@@ -25,14 +25,11 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
-import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.repository.Authentication;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.settings.Proxy;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
@@ -42,38 +39,17 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
-import org.eclipse.aether.util.repository.AuthenticationBuilder;
 
 public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
-
-    // borrowed from https://github.com/forge/furnace/blob/master/manager/resolver/maven/src/main/java/org/jboss/forge/furnace/manager/maven/MavenContainer.java#L216
-    protected static org.eclipse.aether.repository.Proxy convertFromMavenProxy(Proxy proxy) {
-        if (proxy != null) {
-            return  new org.eclipse.aether.repository.Proxy(proxy.getProtocol(),
-                                                            proxy.getHost(),
-                                                            proxy.getPort(),
-                                                            new AuthenticationBuilder()
-                                                                    .addUsername(proxy.getUsername())
-                                                                    .addPassword(proxy.getPassword())
-                                                                    .build());
-        }
-
-        return null;
-    }
 
     protected File resolveArtifact(final String group,
                                    final String name,
                                    final String version,
                                    final String classifier,
                                    final String type) throws ArtifactResolutionRuntimeException {
-        final List<RemoteRepository> aetherRepos = this.remoteRepositories.stream()
-                .map(r -> buildRemoteRepository(r.getId(),
-                                                r.getUrl(),
-                                                r.getAuthentication()))
-                .collect(Collectors.toList());
         final DefaultArtifact artifact = new DefaultArtifact(group, name, classifier, type, version);
         final LocalArtifactResult localResult = this.repositorySystemSession.getLocalRepositoryManager()
-                .find(this.repositorySystemSession, new LocalArtifactRequest(artifact, aetherRepos, null));
+                .find(this.repositorySystemSession, new LocalArtifactRequest(artifact, this.remoteRepositories, null));
         File file = null;
 
         if (localResult.isAvailable()) {
@@ -82,7 +58,7 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
             final ArtifactResult result;
             try {
                 result = resolver.resolveArtifact(this.repositorySystemSession,
-                                                  new ArtifactRequest(artifact, aetherRepos, null));
+                                                  new ArtifactRequest(artifact, this.remoteRepositories, null));
             } catch (ArtifactResolutionException e) {
                 throw new ArtifactResolutionRuntimeException(String.format("%s:%s:%s:%s:%s", group, name, version,
                                                                            classifier, type), e);
@@ -93,21 +69,6 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
         }
 
         return file;
-    }
-
-    protected RemoteRepository buildRemoteRepository(final String id, final String url, final Authentication auth) {
-        RemoteRepository.Builder builder = new RemoteRepository.Builder(id, "default", url);
-        if (auth != null &&
-                auth.getUsername() != null &&
-                auth.getPassword() != null) {
-            builder.setAuthentication(new AuthenticationBuilder()
-                                              .addUsername(auth.getUsername())
-                                              .addPassword(auth.getPassword()).build());
-        }
-
-        builder.setProxy(convertFromMavenProxy(this.mavenSession.getSettings().getActiveProxy()));
-
-        return builder.build();
     }
 
     protected Map<String, String> parsedModules() {
@@ -166,8 +127,8 @@ public abstract class AbstractExposedComponentsMojo extends AbstractMojo {
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
     protected DefaultRepositorySystemSession repositorySystemSession;
 
-    @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
-    private List<ArtifactRepository> remoteRepositories;
+    @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteProjectRepositories}", readonly = true)
+    private List<RemoteRepository> remoteRepositories;
 
     @Parameter(defaultValue = "${session}", readonly = true)
     private MavenSession mavenSession;
