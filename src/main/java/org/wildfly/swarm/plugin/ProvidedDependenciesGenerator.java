@@ -105,6 +105,10 @@ public class ProvidedDependenciesGenerator {
             Files.createDirectories(metaInfDir);
         }
         try (FileWriter writer = new FileWriter(output.toFile(), found)) {
+            if (found) {
+                writer.write('\n');
+            }
+
             for (Dep dep : this.deps) {
                 writer.write("maven(" + dep.groupId + ":" + dep.artifactId + ") remove\n");
             }
