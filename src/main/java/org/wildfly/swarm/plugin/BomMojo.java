@@ -46,6 +46,8 @@ public class BomMojo extends AbstractExposedComponentsMojo {
         }
 
         getLog().info(String.format("Wrote bom to %s", bomPath));
+
+        project.setFile( bomPath.toFile() );
     }
 
     protected void verifyBomDependencies() throws MojoFailureException {
