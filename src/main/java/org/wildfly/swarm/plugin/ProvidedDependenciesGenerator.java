@@ -92,6 +92,7 @@ public class ProvidedDependenciesGenerator {
         List<DependencyNode> nodes = visitor.getNodes();
         this.deps.addAll(
                 nodes.stream()
+                        .filter(e->e.getDependency().getArtifact().getExtension().equals( "jar" ) )
                         .map(n -> new Dep(n.getDependency().getArtifact().getGroupId(), n.getDependency().getArtifact().getArtifactId()))
                         .collect(Collectors.toList())
         );
