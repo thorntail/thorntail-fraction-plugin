@@ -405,6 +405,20 @@ public class ModuleFiller {
                 });
             }
         }
+
+        Path targetModulesDir = Paths.get( this.project.getBuild().getOutputDirectory() ).resolve( "modules" );
+
+        if (Files.exists(targetModulesDir)) {
+            Files.walkFileTree(targetModulesDir, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().equals("module.xml")) {
+                        analyzeModuleXml(targetModulesDir, file, requiredModules, availableModules);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
     }
 
     protected void walkDependencyModules(Set<String> requiredModules, Set<String> availableModules) throws IOException {

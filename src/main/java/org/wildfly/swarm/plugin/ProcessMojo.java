@@ -50,6 +50,7 @@ import org.xml.sax.SAXException;
 public class ProcessMojo extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
+        executeModuleGenerator();
         executeBootstrapMarker();
         executeProvidedDependenciesGenerator();
         executeModuleFiller();
@@ -85,6 +86,20 @@ public class ProcessMojo extends AbstractMojo {
         } catch (ParserConfigurationException | IOException | SAXException | DependencyCollectionException e) {
             throw new MojoExecutionException("Unable to execute provided dependencies", e);
         }
+    }
+
+    protected void executeModuleGenerator() throws MojoExecutionException {
+        ModuleGenerator generator = new ModuleGenerator(
+                getLog(),
+                this.project
+        );
+
+        try {
+            generator.execute();
+        } catch (IOException e) {
+            throw new MojoExecutionException("Unable to generate modules", e );
+        }
+
     }
 
     protected void executeModuleFiller() throws MojoExecutionException {
