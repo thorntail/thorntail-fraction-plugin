@@ -49,7 +49,7 @@ public class ModuleGenerator {
         Path moduleConf = this.project.getBasedir().toPath().resolve("module.conf");
         if (Files.exists(moduleConf)) {
             log.debug("Processing: " + moduleConf);
-            
+
             List<String> dependencies;
             try (BufferedReader reader = new BufferedReader(new FileReader(moduleConf.toFile()))) {
                 dependencies = reader.lines().collect(Collectors.toList());
@@ -144,9 +144,6 @@ public class ModuleGenerator {
         export(mainModule, mainModuleXml);
         export(apiModule, apiModuleXml);
         export(runtimeModule, runtimeModuleXml);
-        //System.err.println(mainModule.exportAsString());
-        //System.err.println(apiModule.exportAsString());
-        //System.err.println(runtimeModule.exportAsString());
     }
 
     private void addDependencies(ModuleDescriptor module, List<String> dependencies) {
@@ -154,6 +151,11 @@ public class ModuleGenerator {
         for (String dependency : dependencies) {
             dependency = dependency.trim();
             if (!dependency.isEmpty()) {
+                boolean optional = false;
+                if ( dependency.startsWith("*") ) {
+                    optional = true;
+                    dependency = dependency.substring(1);
+                }
                 String services = null;
                 if (dependency.contains("services=export")) {
                     services = "export";
@@ -191,19 +193,19 @@ public class ModuleGenerator {
                 if (isexport) {
                     moduleDep.export(isexport);
                 }
+                if (optional) {
+                    moduleDep.optional(true);
+                }
             }
         }
 
     }
 
     private void export(ModuleDescriptor module, Path path) throws IOException {
-        System.err.println("export to : " + path);
-        System.err.println(module.exportAsString());
         Files.createDirectories(path.getParent());
         try (FileOutputStream out = new FileOutputStream(path.toFile())) {
             module.exportTo(out);
         }
-
     }
 
     public Path determineModuleRoot() throws IOException {
