@@ -2,7 +2,6 @@ package org.wildfly.swarm.plugin;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -48,18 +47,18 @@ public class ModuleGenerator {
 
     public void execute() throws IOException {
         Path moduleConf = this.project.getBasedir().toPath().resolve("module.conf");
+        if (Files.exists(moduleConf)) {
+            log.debug("Processing: " + moduleConf);
+            
+            List<String> dependencies;
+            try (BufferedReader reader = new BufferedReader(new FileReader(moduleConf.toFile()))) {
+                dependencies = reader.lines().collect(Collectors.toList());
+            }
 
-        System.err.println("test " + moduleConf);
-        if (!Files.exists(moduleConf)) {
-            return;
+            Path moduleRoot = determineModuleRoot();
+
+            generate(moduleRoot, dependencies);
         }
-
-        BufferedReader reader = new BufferedReader(new FileReader(moduleConf.toFile()));
-        List<String> dependencies = reader.lines().collect(Collectors.toList());
-
-        Path moduleRoot = determineModuleRoot();
-
-        generate(moduleRoot, dependencies);
     }
 
     public void generate(Path root, List<String> dependencies) throws IOException {
@@ -163,6 +162,11 @@ public class ModuleGenerator {
                     services = "import";
                     dependency = dependency.replace("services=import", "");
                 }
+                boolean isexport = false;
+                if (dependency.contains("export=true")) {
+                    isexport = true;
+                    dependency = dependency.replace("export=true", "");
+                }
                 dependency = dependency.trim();
                 int colonLoc = dependency.indexOf(':');
 
@@ -183,6 +187,9 @@ public class ModuleGenerator {
 
                 if (services != null) {
                     moduleDep.services(services);
+                }
+                if (isexport) {
+                    moduleDep.export(isexport);
                 }
             }
         }
