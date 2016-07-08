@@ -24,9 +24,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.jar.JarFile;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
 
 import javax.inject.Inject;
 
@@ -36,16 +34,19 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
+import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
+import org.eclipse.aether.DefaultRepositorySystemSession;
 
 /**
  * @author Bob McWhirter
@@ -58,9 +59,12 @@ import org.apache.maven.project.ProjectBuildingRequest;
         requiresDependencyCollection = ResolutionScope.COMPILE,
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
-public class FractionListMojo extends AbstractExposedComponentsMojo {
+public class FractionListMojo extends AbstractMojo {
+
+    private static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
 
     private static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
+
     private static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
 
     @Inject
@@ -70,6 +74,7 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
+        /*
         List<Dependency> fractionsDependencies = bomDependencies().stream()
                 .sorted( (l,r)->{
                     int result = l.getGroupId().compareTo( r.getGroupId() );
@@ -81,36 +86,48 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
                 })
                 .filter(this::isFraction)
                 .collect(Collectors.toList());
+                */
+
+        List<MavenProject> fractionProjects = this.project.getDependencyManagement().getDependencies()
+                .stream()
+                .filter(this::mightBeFraction)
+                .map(this::toProject)
+                .filter(e->e!=null)
+                .filter(this::isFraction)
+                .collect(Collectors.toList());
 
         Map<String, Fraction> fractions = new TreeMap<>();
-        fractionsDependencies.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
-                                                         new Fraction(d.getGroupId(), d.getArtifactId(), d.getVersion())));
+        fractionProjects.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
+                new Fraction(d.getGroupId(), d.getArtifactId(), d.getVersion())));
 
-        fractionsDependencies.forEach(dependency -> {
-            final Fraction current = fractions.get(dependency.getGroupId() + ":" + dependency.getArtifactId());
+        Fraction container = new Fraction( "org.wildfly.swarm", "container", this.project.getVersion() );
 
-            try {
-                MavenProject fractionProject = project(dependency);
+        fractions.put( "org.wildfly.swarm:container", container );
 
-                current.setName(fractionProject.getName());
-                current.setDescription(fractionProject.getDescription());
-                Properties properties = fractionProject.getProperties();
-                current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
-                current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
+        fractionProjects.forEach(fractionProject -> {
+            final Fraction current = fractions.get(fractionProject.getGroupId() + ":" + fractionProject.getArtifactId());
+            System.err.println( "current fraction: " + current );
 
-                Set<Artifact> deps = fractionProject.getArtifacts();
+            current.setName(fractionProject.getName());
+            current.setDescription(fractionProject.getDescription());
+            Properties properties = fractionProject.getProperties();
+            current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
+            current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
 
-                for (Artifact each : deps) {
-                    Fraction f = fractions.get(each.getGroupId() + ":" + each.getArtifactId());
-                    if (f == null) {
-                        continue;
-                    }
-                    current.addDependency(f);
+            Set<Artifact> deps = fractionProject.getArtifacts();
+
+            for (Artifact each : deps) {
+                Fraction f = fractions.get(each.getGroupId() + ":" + each.getArtifactId());
+                if (f == null) {
+                    continue;
                 }
-
-            } catch (ProjectBuildingException e) {
-                e.printStackTrace();
+                if ( f.getGroupId().equals( "org.wildfly.swarm" ) && f.getArtifactId().equals( "bootstrap" ) ) {
+                    continue;
+                }
+                current.addDependency(f);
             }
+            current.addDependency( container );
+
         });
 
         generateTxt(fractions);
@@ -211,6 +228,14 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
         this.project.addAttachedArtifact(artifact);
     }
 
+    protected MavenProject toProject(Dependency dependency) {
+        try {
+            return project(dependency);
+        } catch (ProjectBuildingException e) {
+            return null;
+        }
+    }
+
     protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
         ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
         request.setProcessPlugins(false);
@@ -220,53 +245,26 @@ public class FractionListMojo extends AbstractExposedComponentsMojo {
         request.setResolveDependencies(true);
         org.apache.maven.artifact.Artifact artifact =
                 new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(),
-                                                              dependency.getVersion(), "compile", "", "",
-                                                              new DefaultArtifactHandler());
+                        dependency.getVersion(), "compile", "", "",
+                        new DefaultArtifactHandler());
         MavenProject project = projectBuilder.build(artifact, request).getProject();
 
         return project;
-
     }
 
-    protected boolean isFraction(Dependency dep) {
-        return isFraction(dep, false);
+    protected boolean mightBeFraction(Dependency dependency) {
+        return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
     }
 
-    protected boolean isFraction(Dependency dep, boolean tryApi) {
-        if (!dep.getType().equals("jar")) {
-            return false;
-        }
-        if (!dep.getGroupId().equals("org.wildfly.swarm")) {
-            return false;
-        }
-
-        String groupId = dep.getGroupId();
-        String artifactId = dep.getArtifactId() + ( tryApi ? "-api" : "" );
-
-        if ( this.testedGAVs.contains( groupId + ":" + artifactId ) ) {
-            return false;
-        }
-
-        this.testedGAVs.add( groupId + ":" + artifactId );
-
-        try {
-            final File file = resolveArtifact(groupId, artifactId, dep.getVersion(), "", "jar");
-            if (file != null) {
-                try (JarFile jar = new JarFile(file)) {
-                    ZipEntry bootstrap = jar.getEntry("wildfly-swarm-bootstrap.conf");
-                    if (bootstrap != null) {
-                        return true;
-                    }
-                }
-                if (!tryApi) {
-                    return isFraction(dep, true);
-                }
-                return false;
-            }
-        } catch (ArtifactResolutionRuntimeException | IOException e) {
-            // ignore
-        }
-
-        return false;
+    protected boolean isFraction(MavenProject project) {
+        return project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
+                || project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME) != null
+                || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME ) != null;
     }
+
+    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
+    protected DefaultRepositorySystemSession repositorySystemSession;
+
+    @Parameter(defaultValue = "${project}", readonly = true)
+    private MavenProject project;
 }
