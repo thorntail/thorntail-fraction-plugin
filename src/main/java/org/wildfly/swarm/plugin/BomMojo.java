@@ -22,25 +22,26 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
+import org.eclipse.aether.DefaultRepositorySystemSession;
 
 @Mojo(name = "generate-bom",
         defaultPhase = LifecyclePhase.PACKAGE)
-public class BomMojo extends AbstractExposedComponentsMojo {
+public class BomMojo extends AbstractFractionsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        verifyBomDependencies();
-
+        List<MavenProject> fractions = fractions(this.stabilityIndex);
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
+            Files.createDirectories( bomPath.getParent() );
             Files.write(bomPath,
-                        BomBuilder.generateBOM(readTemplate(), resolvedComponents()).getBytes());
+                        BomBuilder.generateBOM(this.project, readTemplate(), fractions).getBytes());
         } catch (IOException e) {
             throw new MojoFailureException("Failed to write bom.pom", e);
         }
@@ -48,16 +49,6 @@ public class BomMojo extends AbstractExposedComponentsMojo {
         getLog().info(String.format("Wrote bom to %s", bomPath));
 
         project.setFile( bomPath.toFile() );
-    }
-
-    protected void verifyBomDependencies() throws MojoFailureException {
-        for (Dependency dep : bomDependencies()) {
-            try {
-                resolveArtifact(dep.getGroupId(), dep.getArtifactId(), dep.getVersion(), null, "pom");
-            } catch (ArtifactResolutionRuntimeException e) {
-                throw new MojoFailureException(String.format("%s is not resolvable", dep), e.getCause());
-            }
-        }
     }
 
     protected String readTemplate() throws MojoFailureException {
@@ -73,6 +64,9 @@ public class BomMojo extends AbstractExposedComponentsMojo {
             throw new MojoFailureException("Failed to read template " + this.template, e);
         }
     }
+
+    @Parameter
+    private int stabilityIndex;
 
     @Parameter
     private File template;

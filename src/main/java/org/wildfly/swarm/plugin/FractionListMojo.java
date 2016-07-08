@@ -18,35 +18,23 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
-
-import javax.inject.Inject;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.handler.DefaultArtifactHandler;
-import org.apache.maven.model.Dependency;
-import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.ProjectBuilder;
-import org.apache.maven.project.ProjectBuildingException;
-import org.apache.maven.project.ProjectBuildingRequest;
-import org.eclipse.aether.DefaultRepositorySystemSession;
 
 /**
  * @author Bob McWhirter
@@ -59,42 +47,12 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
         requiresDependencyCollection = ResolutionScope.COMPILE,
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
-public class FractionListMojo extends AbstractMojo {
+public class FractionListMojo extends AbstractFractionsMojo {
 
-    private static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
-
-    private static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
-
-    private static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
-
-    @Inject
-    ProjectBuilder projectBuilder;
-
-    private Set<String> testedGAVs = new HashSet<>();
 
     public void execute() throws MojoExecutionException, MojoFailureException {
 
-        /*
-        List<Dependency> fractionsDependencies = bomDependencies().stream()
-                .sorted( (l,r)->{
-                    int result = l.getGroupId().compareTo( r.getGroupId() );
-                    if ( result != 0 ) {
-                        return result;
-                    }
-
-                    return l.getArtifactId().compareTo(r.getArtifactId());
-                })
-                .filter(this::isFraction)
-                .collect(Collectors.toList());
-                */
-
-        List<MavenProject> fractionProjects = this.project.getDependencyManagement().getDependencies()
-                .stream()
-                .filter(this::mightBeFraction)
-                .map(this::toProject)
-                .filter(e->e!=null)
-                .filter(this::isFraction)
-                .collect(Collectors.toList());
+        List<MavenProject> fractionProjects = fractions();
 
         Map<String, Fraction> fractions = new TreeMap<>();
         fractionProjects.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
@@ -106,7 +64,6 @@ public class FractionListMojo extends AbstractMojo {
 
         fractionProjects.forEach(fractionProject -> {
             final Fraction current = fractions.get(fractionProject.getGroupId() + ":" + fractionProject.getArtifactId());
-            System.err.println( "current fraction: " + current );
 
             current.setName(fractionProject.getName());
             current.setDescription(fractionProject.getDescription());
@@ -227,44 +184,4 @@ public class FractionListMojo extends AbstractMojo {
         artifact.setFile(outFile);
         this.project.addAttachedArtifact(artifact);
     }
-
-    protected MavenProject toProject(Dependency dependency) {
-        try {
-            return project(dependency);
-        } catch (ProjectBuildingException e) {
-            return null;
-        }
-    }
-
-    protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
-        ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
-        request.setProcessPlugins(false);
-        request.setSystemProperties(System.getProperties());
-        request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
-        request.setRepositorySession(this.repositorySystemSession);
-        request.setResolveDependencies(true);
-        org.apache.maven.artifact.Artifact artifact =
-                new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(),
-                        dependency.getVersion(), "compile", "", "",
-                        new DefaultArtifactHandler());
-        MavenProject project = projectBuilder.build(artifact, request).getProject();
-
-        return project;
-    }
-
-    protected boolean mightBeFraction(Dependency dependency) {
-        return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
-    }
-
-    protected boolean isFraction(MavenProject project) {
-        return project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
-                || project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME) != null
-                || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME ) != null;
-    }
-
-    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
-    protected DefaultRepositorySystemSession repositorySystemSession;
-
-    @Parameter(defaultValue = "${project}", readonly = true)
-    private MavenProject project;
 }

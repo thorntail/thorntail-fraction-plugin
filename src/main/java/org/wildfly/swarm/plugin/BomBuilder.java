@@ -15,40 +15,34 @@
  */
 package org.wildfly.swarm.plugin;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.apache.maven.project.MavenProject;
 
 public class BomBuilder {
 
     public static final String SWARM_GROUP = "org.wildfly.swarm";
 
-    public static String generateBOM(final String template,
-                                     final List<ExposedComponents> components) {
+    public static String generateBOM(final MavenProject rootProject,
+                                     final String template,
+                                     final List<MavenProject> fractions) {
         return template.replace("#{dependencies}",
-                                String.join("\n", dependenciesList(components).stream()
+                                String.join("\n",
+                                        fractions.stream()
                                         .map(BomBuilder::pomGav)
-                                        .collect(Collectors.toList())));
+                                        .collect(Collectors.toList())))
+                .replace("#{bom-artifactId}", rootProject.getArtifactId() )
+                .replace("#{bom-name}", rootProject.getName() )
+                .replace("#{bom-description}", rootProject.getDescription() );
     }
 
-    public static List<String> dependenciesList(final List<ExposedComponents> components) {
-        return components.stream()
-                .flatMap(ec -> ec.components().stream()
-                        .filter(d -> d.isBom())
-                        .map(d -> gav(d.name(), ec.version())))
-                .collect(Collectors.toList());
-
+    private static String pomGav(MavenProject project) {
+        return pomGav( project.getGroupId(), project.getArtifactId(), project.getVersion() );
     }
 
-    private static String gav(final String name, final String version) {
-        return String.format("%s:%s:%s", SWARM_GROUP, name, version);
-    }
-
-    private static String pomGav(final String gav) {
-        final String[] parts = gav.split(":");
-
-        return String.format(DEP_TEMPLATE, parts[0], parts[1], parts[2]);
+    private static String pomGav(final String groupId, final String artifactId, final String version) {
+        return String.format(DEP_TEMPLATE, groupId, artifactId, version );
     }
 
     static final private String DEP_TEMPLATE = "      <dependency>\n        <groupId>%s</groupId>\n" +

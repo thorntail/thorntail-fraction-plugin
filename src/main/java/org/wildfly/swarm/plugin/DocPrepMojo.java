@@ -30,9 +30,9 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.exporter.ExplodedExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 
-@Mojo(name = "prep-doc-source",
-        defaultPhase = LifecyclePhase.GENERATE_SOURCES)
-public class DocPrepMojo extends AbstractExposedComponentsMojo {
+//@Mojo(name = "prep-doc-source",
+        //defaultPhase = LifecyclePhase.GENERATE_SOURCES)
+public class DocPrepMojo { /*extends AbstractExposedComponentsMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         this.sourceOutputDir.mkdirs();
@@ -62,5 +62,6 @@ public class DocPrepMojo extends AbstractExposedComponentsMojo {
 
     @Parameter
     private File sourceOutputDir;
+    */
 }
 
