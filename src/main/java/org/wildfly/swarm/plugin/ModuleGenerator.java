@@ -72,6 +72,7 @@ public class ModuleGenerator {
         Path mainModuleXml = outputDir.resolve(root).resolve(Paths.get("main", "module.xml"));
 
         Set<String> apiPaths = determineApiPaths();
+        Set<String> runtimePaths = determineRuntimePaths();
 
         // -- runtime
 
@@ -83,11 +84,11 @@ public class ModuleGenerator {
         ArtifactType<ResourcesType<ModuleDescriptor>> runtimeArtifact = runtimeModule.getOrCreateResources().createArtifact();
         runtimeArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
 
-        PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> excludeSet = runtimeArtifact.getOrCreateFilter()
+        PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> runtimeExcludeSet = runtimeArtifact.getOrCreateFilter()
                 .createExcludeSet();
 
         for (String path : apiPaths) {
-            excludeSet.createPath().name(path);
+            runtimeExcludeSet.createPath().name(path);
         }
 
         runtimeModule.getOrCreateDependencies()
@@ -106,11 +107,18 @@ public class ModuleGenerator {
         ArtifactType<ResourcesType<ModuleDescriptor>> apiArtifact = apiModule.getOrCreateResources().createArtifact();
         apiArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
 
-        PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> includeSet = apiArtifact.getOrCreateFilter()
+        PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> apiIncludeSet = apiArtifact.getOrCreateFilter()
                 .createIncludeSet();
 
         for (String path : apiPaths) {
-            includeSet.createPath().name(path);
+            apiIncludeSet.createPath().name(path);
+        }
+
+        PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> apiExcludeSet = apiArtifact.getOrCreateFilter()
+                .createExcludeSet();
+
+        for (String path : runtimePaths) {
+            apiExcludeSet.createPath().name(path);
         }
 
         apiModule.getOrCreateDependencies()
@@ -248,6 +256,29 @@ public class ModuleGenerator {
 
         Files.walkFileTree(dir, visitor);
         return apiPaths;
+
+    }
+
+    public Set<String> determineRuntimePaths() throws IOException {
+        Path dir = Paths.get(this.project.getBuild().getOutputDirectory());
+
+        Set<String> runtimePaths = new HashSet<>();
+
+        FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                if (file.getFileName().toString().endsWith(".class")) {
+                    if (file.toString().contains("runtime")) {
+                        runtimePaths.add(dir.relativize(file.getParent()).toString());
+                    } else {
+                    }
+                }
+                return super.visitFile(file, attrs);
+            }
+        };
+
+        Files.walkFileTree(dir, visitor);
+        return runtimePaths;
 
     }
 
