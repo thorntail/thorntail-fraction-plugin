@@ -18,7 +18,7 @@
 
   <name>WildFly Swarm: Fraction Plugin</name>
   <description>Plugin to create fraction packages for Wildfly Swarm proper.</description>
-  <version>26-SNAPSHOT</version>
+  <version>26</version>
 
   <packaging>maven-plugin</packaging>
 
@@ -34,7 +34,7 @@
     <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</connection>
     <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</developerConnection>
     <url>https://github.com/wildfly-swarm/wildfly-swarm-fraction-plugin</url>
-    <tag>HEAD</tag>
+    <tag>26</tag>
   </scm>
 
   <repositories>
