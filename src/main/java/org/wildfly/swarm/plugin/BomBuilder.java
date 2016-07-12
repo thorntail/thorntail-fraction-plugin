@@ -15,6 +15,7 @@
  */
 package org.wildfly.swarm.plugin;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,7 +27,7 @@ public class BomBuilder {
 
     public static String generateBOM(final MavenProject rootProject,
                                      final String template,
-                                     final List<MavenProject> fractions) {
+                                     final Collection<Fraction> fractions) {
         return template.replace("#{dependencies}",
                                 String.join("\n",
                                         fractions.stream()
@@ -37,7 +38,7 @@ public class BomBuilder {
                 .replace("#{bom-description}", rootProject.getDescription() );
     }
 
-    private static String pomGav(MavenProject project) {
+    private static String pomGav(Fraction project) {
         return pomGav( project.getGroupId(), project.getArtifactId(), project.getVersion() );
     }
 

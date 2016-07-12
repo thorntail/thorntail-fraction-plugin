@@ -51,41 +51,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
 
 
     public void execute() throws MojoExecutionException, MojoFailureException {
-
-        List<MavenProject> fractionProjects = fractions();
-
-        Map<String, Fraction> fractions = new TreeMap<>();
-        fractionProjects.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
-                                                    new Fraction(d.getGroupId(), d.getArtifactId(), d.getVersion())));
-
-        Fraction container = new Fraction("org.wildfly.swarm", "container", this.project.getVersion());
-
-        fractions.put("org.wildfly.swarm:container", container);
-
-        fractionProjects.forEach(fractionProject -> {
-            final Fraction current = fractions.get(fractionProject.getGroupId() + ":" + fractionProject.getArtifactId());
-
-            current.setName(fractionProject.getName());
-            current.setDescription(fractionProject.getDescription());
-            Properties properties = fractionProject.getProperties();
-            current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
-            current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
-            current.setStabilityIndex(Integer.parseInt(properties.getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX)));
-            Set<Artifact> deps = fractionProject.getArtifacts();
-
-            for (Artifact each : deps) {
-                Fraction f = fractions.get(each.getGroupId() + ":" + each.getArtifactId());
-                if (f == null) {
-                    continue;
-                }
-                if (f.getGroupId().equals("org.wildfly.swarm") && f.getArtifactId().equals("bootstrap")) {
-                    continue;
-                }
-                current.addDependency(f);
-            }
-            current.addDependency(container);
-
-        });
+        Map<String, Fraction> fractions = fractions();
 
         generateTxt(fractions);
         generateJSON(fractions);

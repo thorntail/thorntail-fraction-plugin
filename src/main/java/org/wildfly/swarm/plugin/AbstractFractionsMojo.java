@@ -18,6 +18,9 @@ package org.wildfly.swarm.plugin;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -51,51 +54,58 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
 
-    public List<MavenProject> fractions() {
-        return fractions(all());
-    }
-
-    public List<MavenProject> fractions(Function<MavenProject, Boolean> filter) {
+    public List<MavenProject> fractionProjects() {
         return this.project.getDependencyManagement().getDependencies()
                 .stream()
                 .filter(this::mightBeFraction)
                 .map(this::toProject)
                 .filter(e -> e != null)
                 .filter(this::isFraction)
-                .filter(e->{
-                    if ( filter == null ) {
-                        return true;
-                    }
-                    return filter.apply( e );
-                })
                 .collect(Collectors.toList());
-
     }
 
-    public List<MavenProject> fractions(Integer stabilityIndex) {
-        return fractions( (e)->isAtLeast( e,stabilityIndex) );
-    }
+    public synchronized  Map<String,Fraction> fractions() {
+        if ( CACHE != null ) {
+            return CACHE;
+        }
+        List<MavenProject> fractionProjects = fractionProjects();
 
-    public static Function<MavenProject, Boolean> all() {
-        return (project)-> true;
-    }
+        Map<String, Fraction> fractions = new TreeMap<>();
+        fractionProjects.forEach(d -> fractions.put(d.getGroupId() + ":" + d.getArtifactId(),
+                new Fraction(d.getGroupId(), d.getArtifactId(), d.getVersion())));
 
-    public static Function<MavenProject, Boolean> isAtLeast(int index) {
-        return (project)-> isAtLeast(project, index);
-    }
+        Fraction container = new Fraction("org.wildfly.swarm", "container", this.project.getVersion());
 
-    private static boolean isAtLeast(MavenProject project, int index) {
-        int projectLevel = Integer.parseInt(project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX));
-        return projectLevel >= index;
-    }
+        fractions.put("org.wildfly.swarm:container", container);
 
-    public static Function<MavenProject, Boolean> isEqualTo(int index) {
-        return (project)-> isEqualTo(project, index);
-    }
+        fractionProjects.forEach(fractionProject -> {
+            final Fraction current = fractions.get(fractionProject.getGroupId() + ":" + fractionProject.getArtifactId());
 
-    private static boolean isEqualTo(MavenProject project, int index) {
-        int projectLevel = Integer.parseInt(project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX));
-        return projectLevel == index;
+            current.setName(fractionProject.getName());
+            current.setDescription(fractionProject.getDescription());
+            Properties properties = fractionProject.getProperties();
+            current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
+            current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
+            current.setStabilityIndex(Integer.parseInt(properties.getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX)));
+            Set<Artifact> deps = fractionProject.getArtifacts();
+
+            for (Artifact each : deps) {
+                Fraction f = fractions.get(each.getGroupId() + ":" + each.getArtifactId());
+                if (f == null) {
+                    continue;
+                }
+                if (f.getGroupId().equals("org.wildfly.swarm") && f.getArtifactId().equals("bootstrap")) {
+                    continue;
+                }
+                current.addDependency(f);
+            }
+            current.addDependency(container);
+        });
+
+        CACHE = fractions;
+
+        return fractions;
+
     }
 
     protected MavenProject toProject(Dependency dependency) {
@@ -107,10 +117,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
-        if ( CACHE.containsKey( dependency.toString() ) ) {
-            MavenProject project = CACHE.get(dependency.toString());
-            return project;
-        }
         ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
         request.setProcessPlugins(false);
         request.setSystemProperties(System.getProperties());
@@ -122,8 +128,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                         dependency.getVersion(), "compile", "", "",
                         new DefaultArtifactHandler());
         MavenProject project = projectBuilder.build(artifact, request).getProject();
-
-        CACHE.put( dependency.toString(), project );
 
         return project;
     }
@@ -149,5 +153,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     public MavenProject project;
 
-    private static final Map<String,MavenProject> CACHE = new HashMap<>();
+    private static Map<String,Fraction> CACHE;
+
 }
