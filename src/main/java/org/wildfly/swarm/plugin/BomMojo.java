@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Function;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -28,7 +29,6 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.eclipse.aether.DefaultRepositorySystemSession;
 
 @Mojo(name = "generate-bom",
         defaultPhase = LifecyclePhase.PACKAGE)
@@ -36,7 +36,21 @@ public class BomMojo extends AbstractFractionsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        List<MavenProject> fractions = fractions(this.stabilityIndex);
+        Function<MavenProject,Boolean> filter = all();
+        if ( this.stabilityIndex != null ) {
+            this.stabilityIndex = this.stabilityIndex.trim();
+
+            if ( this.stabilityIndex.equals( "*" ) ) {
+                filter = all();
+            } else if ( this.stabilityIndex.endsWith("+") ) {
+                int level = Integer.parseInt( this.stabilityIndex.substring(0, this.stabilityIndex.length()-1));
+                filter = isAtLeast( level );
+            } else {
+                int level = Integer.parseInt( this.stabilityIndex );
+                filter = isEqualTo( Integer.parseInt( this.stabilityIndex ) );
+            }
+        }
+        List<MavenProject> fractions = fractions(filter);
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
             Files.createDirectories( bomPath.getParent() );
@@ -47,6 +61,10 @@ public class BomMojo extends AbstractFractionsMojo {
         }
 
         getLog().info(String.format("Wrote bom to %s", bomPath));
+
+        for (MavenProject fraction : fractions) {
+            getLog().info(String.format("%40s", fraction.getGroupId() +":" + fraction.getArtifactId()));
+        }
 
         project.setFile( bomPath.toFile() );
     }
@@ -66,7 +84,7 @@ public class BomMojo extends AbstractFractionsMojo {
     }
 
     @Parameter
-    private int stabilityIndex;
+    private String stabilityIndex;
 
     @Parameter
     private File template;

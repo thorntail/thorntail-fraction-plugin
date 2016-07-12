@@ -15,7 +15,11 @@
  */
 package org.wildfly.swarm.plugin;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
@@ -48,10 +52,10 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
 
     public List<MavenProject> fractions() {
-        return fractions(null);
+        return fractions(all());
     }
 
-    public List<MavenProject> fractions(Integer stabilityIndex) {
+    public List<MavenProject> fractions(Function<MavenProject, Boolean> filter) {
         return this.project.getDependencyManagement().getDependencies()
                 .stream()
                 .filter(this::mightBeFraction)
@@ -59,17 +63,39 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                 .filter(e -> e != null)
                 .filter(this::isFraction)
                 .filter(e->{
-                    if ( stabilityIndex == null ) {
+                    if ( filter == null ) {
                         return true;
                     }
-
-                    return isAtLeast( e, stabilityIndex );
+                    return filter.apply( e );
                 })
                 .collect(Collectors.toList());
+
     }
 
-    protected boolean isAtLeast(MavenProject project, int index) {
-        return Integer.parseInt(project.getProperties().getProperty( FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX )) >= index;
+    public List<MavenProject> fractions(Integer stabilityIndex) {
+        return fractions( (e)->isAtLeast( e,stabilityIndex) );
+    }
+
+    public static Function<MavenProject, Boolean> all() {
+        return (project)-> true;
+    }
+
+    public static Function<MavenProject, Boolean> isAtLeast(int index) {
+        return (project)-> isAtLeast(project, index);
+    }
+
+    private static boolean isAtLeast(MavenProject project, int index) {
+        int projectLevel = Integer.parseInt(project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX));
+        return projectLevel >= index;
+    }
+
+    public static Function<MavenProject, Boolean> isEqualTo(int index) {
+        return (project)-> isEqualTo(project, index);
+    }
+
+    private static boolean isEqualTo(MavenProject project, int index) {
+        int projectLevel = Integer.parseInt(project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX));
+        return projectLevel == index;
     }
 
     protected MavenProject toProject(Dependency dependency) {
@@ -81,6 +107,10 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
+        if ( CACHE.containsKey( dependency.toString() ) ) {
+            MavenProject project = CACHE.get(dependency.toString());
+            return project;
+        }
         ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
         request.setProcessPlugins(false);
         request.setSystemProperties(System.getProperties());
@@ -93,6 +123,8 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                         new DefaultArtifactHandler());
         MavenProject project = projectBuilder.build(artifact, request).getProject();
 
+        CACHE.put( dependency.toString(), project );
+
         return project;
     }
 
@@ -101,9 +133,11 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected boolean isFraction(MavenProject project) {
-        return project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
+        boolean result = project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
                 || project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME) != null
                 || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME ) != null;
+
+        return result;
     }
 
     @Inject
@@ -114,4 +148,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     @Parameter(defaultValue = "${project}", readonly = true)
     public MavenProject project;
+
+    private static final Map<String,MavenProject> CACHE = new HashMap<>();
 }
