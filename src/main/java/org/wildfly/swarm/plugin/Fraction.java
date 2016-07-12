@@ -76,6 +76,14 @@ public class Fraction {
         this.description = description;
     }
 
+    public void setStabilityIndex(int stabilityIndex) {
+        this.stabilityIndex = stabilityIndex;
+    }
+
+    public int getStabilityIndex() {
+        return stabilityIndex;
+    }
+
     public void addDependency(Fraction fraction) {
         this.dependencies.add(fraction);
     }
@@ -114,4 +122,7 @@ public class Fraction {
     private boolean internal;
 
     private final Set<Fraction> dependencies = new HashSet<>();
+
+    // 2 = Unstable
+    private int stabilityIndex = 2;
 }

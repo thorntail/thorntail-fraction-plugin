@@ -39,7 +39,7 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
  */
 public abstract class AbstractFractionsMojo extends AbstractMojo {
 
-    private static final String DEFAULT_STABILITY_INDEX = "2";
+    protected static final String DEFAULT_STABILITY_INDEX = "2";
 
     protected static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
 
