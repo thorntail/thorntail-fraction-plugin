@@ -45,8 +45,18 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 @Mojo(name = "prep-doc-source",
         defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class DocPrepMojo extends AbstractFractionsMojo {
+
     @Override
+    @SuppressWarnings("unchecked")
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (getPluginContext().containsKey(ALREADY_EXECUTED)) {
+            getLog().info("DocPrepMojo already executed, skipping");
+
+            return;
+        }
+
+        getPluginContext().put(ALREADY_EXECUTED, true);
+
         this.sourceOutputDir.mkdirs();
         final Map<String, String> extraModules = new HashMap<>();
 
@@ -133,6 +143,8 @@ public class DocPrepMojo extends AbstractFractionsMojo {
 
         return file;
     }
+
+    private static final String ALREADY_EXECUTED = "DocPrepMojo-already-executed";
 
     @Parameter
     private File sourceOutputDir;
