@@ -15,14 +15,11 @@
  */
 package org.wildfly.swarm.plugin;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
@@ -57,7 +54,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     public List<MavenProject> fractionProjects() {
         return this.project.getDependencyManagement().getDependencies()
                 .stream()
-                .filter(this::mightBeFraction)
+                .filter(this::isSwarmProject)
                 .map(this::toProject)
                 .filter(e -> e != null)
                 .filter(this::isFraction)
@@ -116,23 +113,21 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
         }
     }
 
-    protected MavenProject project(Dependency dependency) throws ProjectBuildingException {
-        ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+    protected MavenProject project(final Dependency dependency) throws ProjectBuildingException {
+        final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
         request.setProcessPlugins(false);
         request.setSystemProperties(System.getProperties());
         request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
         request.setRepositorySession(this.repositorySystemSession);
         request.setResolveDependencies(true);
-        Artifact artifact =
+        final Artifact artifact =
                 new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(),
-                        dependency.getVersion(), "compile", "", "",
-                        new DefaultArtifactHandler());
-        MavenProject project = projectBuilder.build(artifact, request).getProject();
-
-        return project;
+                                                              dependency.getVersion(), "compile", "", "",
+                                                              new DefaultArtifactHandler());
+        return projectBuilder.build(artifact, request).getProject();
     }
 
-    protected boolean mightBeFraction(Dependency dependency) {
+    protected boolean isSwarmProject(Dependency dependency) {
         return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
     }
 
