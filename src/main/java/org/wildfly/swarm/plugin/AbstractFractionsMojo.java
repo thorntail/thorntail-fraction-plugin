@@ -46,7 +46,7 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
  */
 public abstract class AbstractFractionsMojo extends AbstractMojo {
 
-    protected static final String DEFAULT_STABILITY_INDEX = "2";
+    protected static final String DEFAULT_STABILITY_INDEX = "unstable";
 
     protected static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
 
@@ -86,7 +86,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
             Properties properties = fractionProject.getProperties();
             current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
             current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
-            current.setStabilityIndex(Integer.parseInt(properties.getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX)));
+            current.setStabilityIndex(StabilityLevel.parse(properties.getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX)));
             Set<Artifact> deps = fractionProject.getArtifacts();
 
             for (Artifact each : deps) {

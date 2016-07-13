@@ -51,13 +51,13 @@ public class BomMojo extends AbstractFractionsMojo {
                 int level = Integer.parseInt( this.stabilityIndex.substring(0, this.stabilityIndex.length()-1));
                 fractions = fractionMap.values()
                         .stream()
-                        .filter( (e)->e.getStabilityIndex() >= level )
+                        .filter( (e)->e.getStabilityIndex().ordinal() >= level )
                         .collect(Collectors.toSet());
             } else {
                 int level = Integer.parseInt( this.stabilityIndex );
                 fractions = fractionMap.values()
                         .stream()
-                        .filter( (e)->e.getStabilityIndex() == level )
+                        .filter( (e)->e.getStabilityIndex().ordinal() == level )
                         .collect(Collectors.toSet());
             }
         }

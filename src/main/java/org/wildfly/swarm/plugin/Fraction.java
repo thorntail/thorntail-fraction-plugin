@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * @author Bob McWhirter
@@ -76,12 +77,23 @@ public class Fraction {
         this.description = description;
     }
 
-    public void setStabilityIndex(int stabilityIndex) {
+    public void setStabilityIndex(StabilityLevel stabilityIndex) {
         this.stabilityIndex = stabilityIndex;
     }
 
-    public int getStabilityIndex() {
-        return stabilityIndex;
+    @JsonIgnore
+    public StabilityLevel getStabilityIndex() {
+        return this.stabilityIndex;
+    }
+
+    @JsonProperty("stabilityIndex")
+    public int jsonStabilityIndex() {
+        return this.stabilityIndex.ordinal();
+    }
+
+    @JsonProperty("stabilityDescription")
+    public String jsonStabilityDescription() {
+        return this.stabilityIndex.toString().toLowerCase();
     }
 
     public void addDependency(Fraction fraction) {
@@ -124,5 +136,5 @@ public class Fraction {
     private final Set<Fraction> dependencies = new HashSet<>();
 
     // 2 = Unstable
-    private int stabilityIndex = 2;
+    private StabilityLevel stabilityIndex = StabilityLevel.UNSTABLE;
 }
