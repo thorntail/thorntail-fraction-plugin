@@ -114,6 +114,8 @@ public class ModuleGenerator {
             apiIncludeSet.createPath().name(path);
         }
 
+        apiIncludeSet.createPath().name( "META-INF" );
+
         PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> apiExcludeSet = apiArtifact.getOrCreateFilter()
                 .createExcludeSet();
 
@@ -141,12 +143,25 @@ public class ModuleGenerator {
             systemPaths.createPath().name(path);
         }
 
-        mainModule.getOrCreateDependencies()
-                .createModule()
-                .name(moduleName)
+        ModuleDependencyType<DependenciesType<ModuleDescriptor>> depModule = mainModule.getOrCreateDependencies()
+                .createModule();
+        depModule.name(moduleName)
                 .slot(apiModule.getSlot())
                 .export(true)
                 .services("export");
+
+
+        FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> imports = depModule.getOrCreateImports();
+
+        for (String path : apiPaths) {
+            imports.createInclude().path(path);
+        }
+
+        imports.getOrCreateInclude().path( "**" );
+
+        FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> exports = depModule.getOrCreateExports();
+
+        exports.createInclude().path( "**" );
 
 
         export(mainModule, mainModuleXml);
