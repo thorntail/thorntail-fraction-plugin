@@ -52,6 +52,7 @@ public class ProcessMojo extends AbstractMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         executeModuleGenerator();
         executeBootstrapMarker();
+        executeCDIMarker();
         executeProvidedDependenciesGenerator();
         executeModuleFiller();
         executeJandexer();
@@ -72,6 +73,19 @@ public class ProcessMojo extends AbstractMojo {
 
     }
 
+    protected void executeCDIMarker() throws MojoExecutionException {
+
+        CDIMarker cdiMarker = new CDIMarker(
+                this.project
+        );
+
+        try {
+            cdiMarker.execute();
+        } catch (IOException e) {
+            throw new MojoExecutionException("Unable to execute cdi marker", e);
+        }
+
+    }
 
     protected void executeProvidedDependenciesGenerator() throws MojoExecutionException {
         ProvidedDependenciesGenerator generator = new ProvidedDependenciesGenerator(
