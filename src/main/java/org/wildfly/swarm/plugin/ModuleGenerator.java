@@ -52,10 +52,13 @@ public class ModuleGenerator {
 
             List<String> dependencies;
             try (BufferedReader reader = new BufferedReader(new FileReader(moduleConf.toFile()))) {
-                dependencies = reader.lines().collect(Collectors.toList());
+                dependencies = reader.lines()
+                        .map(String::trim)
+                        .filter(line -> !line.startsWith("#"))
+                        .collect(Collectors.toList());
             }
 
-            Path moduleRoot = determineModuleRoot();
+            Path moduleRoot = BootstrapMarker.baseModulePath( this.project );
 
             generate(moduleRoot, dependencies);
         }
@@ -75,7 +78,6 @@ public class ModuleGenerator {
         Set<String> runtimePaths = determineRuntimePaths();
 
         // -- runtime
-
         ModuleDescriptor runtimeModule = Descriptors.create(ModuleDescriptor.class);
         runtimeModule
                 .name(moduleName)
@@ -97,7 +99,7 @@ public class ModuleGenerator {
                 .createModule().name("org.wildfly.swarm.container").slot("runtime").up();
 
 
-        addDependencies( runtimeModule, dependencies );
+        addDependencies(runtimeModule, dependencies);
 
         // -- api
 
@@ -114,7 +116,7 @@ public class ModuleGenerator {
             apiIncludeSet.createPath().name(path);
         }
 
-        apiIncludeSet.createPath().name( "META-INF" );
+        apiIncludeSet.createPath().name("META-INF");
 
         PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> apiExcludeSet = apiArtifact.getOrCreateFilter()
                 .createExcludeSet();
@@ -127,7 +129,23 @@ public class ModuleGenerator {
                 .createModule()
                 .name("org.wildfly.swarm.container");
 
-        addDependencies( apiModule, dependencies );
+        apiModule.getOrCreateDependencies()
+                .createModule()
+                .name("javax.enterprise.api");
+
+        apiModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.api").slot("3");
+
+        apiModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.spi").slot("3");
+
+        apiModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.core").slot("3");
+
+        addDependencies(apiModule, dependencies);
 
         // -- main
 
@@ -150,18 +168,17 @@ public class ModuleGenerator {
                 .export(true)
                 .services("export");
 
-
         FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> imports = depModule.getOrCreateImports();
 
         for (String path : apiPaths) {
             imports.createInclude().path(path);
         }
 
-        imports.getOrCreateInclude().path( "**" );
+        imports.getOrCreateInclude().path("**");
 
         FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> exports = depModule.getOrCreateExports();
 
-        exports.createInclude().path( "**" );
+        exports.createInclude().path("**");
 
 
         export(mainModule, mainModuleXml);
@@ -175,7 +192,7 @@ public class ModuleGenerator {
             dependency = dependency.trim();
             if (!dependency.isEmpty()) {
                 boolean optional = false;
-                if ( dependency.startsWith("*") ) {
+                if (dependency.startsWith("*")) {
                     optional = true;
                     dependency = dependency.substring(1);
                 }
@@ -207,8 +224,8 @@ public class ModuleGenerator {
                 }
                 ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDep = module.getOrCreateDependencies()
                         .createModule()
-                        .name( depName )
-                        .slot( depSlot );
+                        .name(depName)
+                        .slot(depSlot);
 
                 if (services != null) {
                     moduleDep.services(services);
@@ -225,29 +242,14 @@ public class ModuleGenerator {
     }
 
     private void export(ModuleDescriptor module, Path path) throws IOException {
+        if (module == null) {
+            log.info("Not exporting empty module: " + path);
+            return;
+        }
         Files.createDirectories(path.getParent());
         try (FileOutputStream out = new FileOutputStream(path.toFile())) {
             module.exportTo(out);
         }
-    }
-
-    public Path determineModuleRoot() throws IOException {
-        Path target = Paths.get(this.project.getBuild().getOutputDirectory());
-
-        AtomicReference<Path> root = new AtomicReference<>();
-
-        Files.walkFileTree(target, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.toString().endsWith("Fraction.class")) {
-                    Path path = target.relativize(file.getParent());
-                    root.set(path);
-                }
-                return super.visitFile(file, attrs);
-            }
-        });
-
-        return root.get();
     }
 
     public Set<String> determineApiPaths() throws IOException {
@@ -255,21 +257,23 @@ public class ModuleGenerator {
 
         Set<String> apiPaths = new HashSet<>();
 
-        FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.getFileName().toString().endsWith(".class")) {
-                    if (file.toString().contains("runtime")) {
-                        // ignore
-                    } else {
-                        apiPaths.add(dir.relativize(file.getParent()).toString());
+        if (Files.exists(dir)) {
+            FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().endsWith(".class")) {
+                        if (file.toString().contains("runtime")) {
+                            // ignore
+                        } else {
+                            apiPaths.add(dir.relativize(file.getParent()).toString());
+                        }
                     }
+                    return super.visitFile(file, attrs);
                 }
-                return super.visitFile(file, attrs);
-            }
-        };
+            };
 
-        Files.walkFileTree(dir, visitor);
+            Files.walkFileTree(dir, visitor);
+        }
         return apiPaths;
 
     }
@@ -279,20 +283,22 @@ public class ModuleGenerator {
 
         Set<String> runtimePaths = new HashSet<>();
 
-        FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.getFileName().toString().endsWith(".class")) {
-                    if (file.toString().contains("runtime")) {
-                        runtimePaths.add(dir.relativize(file.getParent()).toString());
-                    } else {
+        if (Files.exists(dir)) {
+            FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().endsWith(".class")) {
+                        if (file.toString().contains("runtime")) {
+                            runtimePaths.add(dir.relativize(file.getParent()).toString());
+                        } else {
+                        }
                     }
+                    return super.visitFile(file, attrs);
                 }
-                return super.visitFile(file, attrs);
-            }
-        };
+            };
 
-        Files.walkFileTree(dir, visitor);
+            Files.walkFileTree(dir, visitor);
+        }
         return runtimePaths;
 
     }

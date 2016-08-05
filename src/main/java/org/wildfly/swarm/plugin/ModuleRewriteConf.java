@@ -75,7 +75,29 @@ public class ModuleRewriteConf {
                 if (line.isEmpty()) {
                     continue;
                 }
-                if (line.startsWith(OPTIONAL)) {
+                if ( line.startsWith(REPLACE) ) {
+                    String[] chunks = line.substring(REPLACE.length()).trim().split( ">" );
+
+                    String origName = null;
+                    String origSlot = "main";
+
+                    String[] origParts = chunks[0].trim().split(":");
+                    origName = origParts[0];
+                    if (origParts.length > 1) {
+                        origSlot = origParts[1];
+                    }
+
+                    String replaceName = null;
+                    String replaceSlot = "main";
+
+                    String[] replaceParts = chunks[1].trim().split(":");
+                    replaceName = replaceParts[0];
+                    if ( replaceParts.length > 1 ) {
+                        replaceSlot = replaceParts[1];
+                    }
+
+                    current.replace( origName, origSlot, replaceName, replaceSlot );
+                } else if (line.startsWith(OPTIONAL)) {
                     String name = null;
                     String slot = "main";
 
@@ -111,6 +133,8 @@ public class ModuleRewriteConf {
     private static final String MODULE = "module:";
 
     private static final String OPTIONAL = "optional:";
+
+    private static final String REPLACE = "replace:";
 
     private Map<String, ModuleRewriteRules> rules = new HashMap<>();
 }

@@ -37,6 +37,11 @@ public class ModuleRewriteRules {
         this.rules.add(new Optional(name, slot));
     }
 
+    public void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
+        System.err.println("adding replace: " + origName + ":" + origSlot + " with " + replaceName + ":" + replaceSlot);
+        this.rules.add(new Replace(origName, origSlot, replaceName, replaceSlot));
+    }
+
     public ModuleDescriptor rewrite(ModuleDescriptor desc) {
         for (Rule rule : this.rules) {
             rule.rewrite(desc);
@@ -81,5 +86,42 @@ public class ModuleRewriteRules {
         private String name;
 
         private String slot;
+    }
+
+    public static class Replace extends Rule {
+        private final String origName;
+
+        private final String origSlot;
+
+        private final String replaceName;
+
+        private final String replaceSlot;
+
+        public Replace(String origName, String origSlot, String replaceName, String replaceSlot) {
+            this.origName = origName;
+            this.origSlot = origSlot;
+
+            this.replaceName = replaceName;
+            this.replaceSlot = replaceSlot;
+
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> deps = desc.getOrCreateDependencies().getAllModule();
+            for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> each : deps) {
+                String depName = each.getName();
+                String depSlot = each.getSlot();
+
+                if (depSlot == null) {
+                    depSlot = "main";
+                }
+
+                if (depName.equals(this.origName) && depSlot.equals(this.origSlot)) {
+                    each.name(this.replaceName).slot(this.replaceSlot);
+                }
+            }
+
+        }
     }
 }

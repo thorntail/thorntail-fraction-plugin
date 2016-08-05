@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.logging.Log;
@@ -29,27 +30,56 @@ public class BootstrapMarker {
         this.project = project;
     }
 
+    public static Path baseModulePath(MavenProject project) throws IOException {
+
+        String pomBootstrap = project.getProperties().getProperty(BOOTSTRAP_PROPERTY);
+
+        Path moduleConf = Paths.get(project.getBasedir().getAbsolutePath(), "module.conf");
+
+        if (!Files.exists(moduleConf) && pomBootstrap == null) {
+            System.err.println( "no pomBootstrap or module.conf" );
+            return null;
+        }
+
+        Path src = Paths.get(project.getBuild().getSourceDirectory());
+
+        AtomicReference<Path> root = new AtomicReference<>();
+
+        if (Files.exists(src)) {
+            Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.toString().endsWith("Fraction.java")) {
+                        Path path = src.relativize(file.getParent());
+                        System.err.println( "found Fraction.java at " + path );
+                        root.set(path);
+                    }
+                    return super.visitFile(file, attrs);
+                }
+            });
+        }
+
+        Path path = root.get();
+
+        System.err.println( "path is before: " + path );
+
+        if (path == null) {
+            System.err.println( "generating path from groupId/artifactId" );
+            path = Paths.get(project.getGroupId().replace('.', File.separatorChar) + File.separatorChar + project.getArtifactId().replace('-', File.separatorChar));
+        }
+
+        System.err.println( "return path: " + path );
+
+        return path;
+    }
+
     public void execute() throws IOException {
 
         String pomBootstrap = this.project.getProperties().getProperty(BOOTSTRAP_PROPERTY);
 
         Path src = Paths.get(this.project.getBuild().getSourceDirectory());
 
-        if (!Files.exists(src) && pomBootstrap == null) {
-            return;
-        }
-
-        if ( Files.exists(src) ) {
-            Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().endsWith("Fraction.java")) {
-                        fraction = file;
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
+        if (Files.exists(src)) {
             for (Resource dir : this.project.getBuild().getResources()) {
                 Path dirPath = Paths.get(dir.getDirectory());
                 if (Files.exists(dirPath) && Files.isDirectory(dirPath)) {
@@ -66,26 +96,27 @@ public class BootstrapMarker {
             }
         }
 
-        if ( this.bootstrapMarkerFound ) {
-            if ( pomBootstrap != null ) {
+        if (this.bootstrapMarkerFound) {
+            if (pomBootstrap != null) {
                 this.log.warn("Both a file named " + BOOTSTRAP_MARKER + " and the property " + BOOTSTRAP_PROPERTY + " were set.  Ignoring property, preferring file");
             }
             return;
         }
 
-        if ( this.fraction != null || pomBootstrap != null ) {
-            createBootstrapMarker(pomBootstrap);
+        Path path = baseModulePath(this.project);
+
+        if (path != null || pomBootstrap != null) {
+            createBootstrapMarker(path, pomBootstrap);
         }
     }
 
-    private void createBootstrapMarker(String moduleName) throws IOException {
-        if ( moduleName == null ) {
-            Path path = Paths.get(this.project.getBuild().getSourceDirectory()).relativize(this.fraction).getParent();
-            moduleName = path.toString().replaceAll(File.separator, ".");
-            this.log.info( "Using " + moduleName + " as conventional bootstrap module name" );
+    private void createBootstrapMarker(Path modulePath, String moduleName) throws IOException {
+        if (moduleName == null) {
+            moduleName = modulePath.toString().replaceAll(File.separator, ".");
+            this.log.info("Using " + moduleName + " as conventional bootstrap module name");
         }
 
-        if ( moduleName.equalsIgnoreCase( "true" ) ) {
+        if (moduleName.equalsIgnoreCase("true")) {
             moduleName = "";
         }
 
@@ -99,8 +130,6 @@ public class BootstrapMarker {
     private final Log log;
 
     private final MavenProject project;
-
-    private Path fraction;
 
     private boolean bootstrapMarkerFound;
 
