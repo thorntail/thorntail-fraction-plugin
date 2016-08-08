@@ -58,7 +58,7 @@ public class ModuleGenerator {
                         .collect(Collectors.toList());
             }
 
-            Path moduleRoot = BootstrapMarker.baseModulePath( this.project );
+            Path moduleRoot = BootstrapMarker.baseModulePath(this.project);
 
             generate(moduleRoot, dependencies);
         }
@@ -93,11 +93,35 @@ public class ModuleGenerator {
             runtimeExcludeSet.createPath().name(path);
         }
 
-        runtimeModule.getOrCreateDependencies()
-                .createModule().name(moduleName).slot("main").up()
-                .createModule().name("org.wildfly.swarm.bootstrap").optional(true).up()
-                .createModule().name("org.wildfly.swarm.container").slot("runtime").up();
+        ModuleDependencyType<DependenciesType<ModuleDescriptor>> mainDep = runtimeModule.getOrCreateDependencies()
+                .createModule().name(moduleName).slot("main").export(true);
 
+        /*
+        FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> mainImports = mainDep.getOrCreateImports();
+        mainImports.createInclude().path( "**" );
+        */
+
+        runtimeModule.getOrCreateDependencies()
+                .createModule().name("org.wildfly.swarm.bootstrap").optional(true).up()
+                .createModule().name("org.wildfly.swarm.container").slot("runtime").up()
+                .createModule().name("org.wildfly.swarm.spi").slot("runtime").up();
+
+
+        runtimeModule.getOrCreateDependencies()
+                .createModule()
+                .name("javax.enterprise.api");
+
+        runtimeModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.api").slot("3");
+
+        runtimeModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.spi").slot("3");
+
+        runtimeModule.getOrCreateDependencies()
+                .createModule()
+                .name("org.jboss.weld.core").slot("3");
 
         addDependencies(runtimeModule, dependencies);
 
@@ -128,6 +152,7 @@ public class ModuleGenerator {
         apiModule.getOrCreateDependencies()
                 .createModule()
                 .name("org.wildfly.swarm.container");
+
 
         apiModule.getOrCreateDependencies()
                 .createModule()
