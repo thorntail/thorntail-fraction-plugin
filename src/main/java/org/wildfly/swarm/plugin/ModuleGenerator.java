@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.maven.plugin.logging.Log;
@@ -73,9 +74,11 @@ public class ModuleGenerator {
         Path runtimeModuleXml = outputDir.resolve(root).resolve(Paths.get("runtime", "module.xml"));
         Path apiModuleXml = outputDir.resolve(root).resolve(Paths.get("api", "module.xml"));
         Path mainModuleXml = outputDir.resolve(root).resolve(Paths.get("main", "module.xml"));
+        Path deploymentModuleXml = outputDir.resolve(root).resolve(Paths.get("deployment", "module.xml"));
 
         Set<String> apiPaths = determineApiPaths();
         Set<String> runtimePaths = determineRuntimePaths();
+        Set<String> deploymentPaths = determineDeploymentPaths();
 
         // -- runtime
         ModuleDescriptor runtimeModule = Descriptors.create(ModuleDescriptor.class);
@@ -90,16 +93,17 @@ public class ModuleGenerator {
                 .createExcludeSet();
 
         for (String path : apiPaths) {
+            System.err.println("runtime exclude 1: " + path);
+            runtimeExcludeSet.createPath().name(path);
+        }
+
+        for (String path : deploymentPaths) {
+            System.err.println("runtime exclude 2: " + path);
             runtimeExcludeSet.createPath().name(path);
         }
 
         ModuleDependencyType<DependenciesType<ModuleDescriptor>> mainDep = runtimeModule.getOrCreateDependencies()
                 .createModule().name(moduleName).slot("main").export(true);
-
-        /*
-        FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> mainImports = mainDep.getOrCreateImports();
-        mainImports.createInclude().path( "**" );
-        */
 
         runtimeModule.getOrCreateDependencies()
                 .createModule().name("org.wildfly.swarm.bootstrap").optional(true).up()
@@ -146,6 +150,10 @@ public class ModuleGenerator {
                 .createExcludeSet();
 
         for (String path : runtimePaths) {
+            apiExcludeSet.createPath().name(path);
+        }
+
+        for (String path : deploymentPaths) {
             apiExcludeSet.createPath().name(path);
         }
 
@@ -205,10 +213,45 @@ public class ModuleGenerator {
 
         exports.createInclude().path("**");
 
+        // -- deployment
+
+        ModuleDescriptor deploymentModule = null;
+
+        if (!deploymentPaths.isEmpty()) {
+            deploymentModule = Descriptors.create(ModuleDescriptor.class);
+            deploymentModule
+                    .name(moduleName)
+                    .slot("deployment");
+
+            ArtifactType<ResourcesType<ModuleDescriptor>> deploymentArtifact = deploymentModule.getOrCreateResources().createArtifact();
+            deploymentArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
+
+            PathSetType<FilterType<ArtifactType<ResourcesType<ModuleDescriptor>>>> deploymentExcludeSet = deploymentArtifact.getOrCreateFilter()
+                    .createExcludeSet();
+
+            for (String path : apiPaths) {
+                deploymentExcludeSet.createPath().name(path);
+            }
+
+            for (String path : runtimePaths) {
+                deploymentExcludeSet.createPath().name(path);
+            }
+
+            ModuleDependencyType<DependenciesType<ModuleDescriptor>> deploymentMainDep = deploymentModule.getOrCreateDependencies()
+                    .createModule();
+            deploymentMainDep.name(moduleName)
+                    .slot(mainModule.getSlot());
+
+            addDependencies(deploymentModule, dependencies);
+
+
+        }
+
 
         export(mainModule, mainModuleXml);
         export(apiModule, apiModuleXml);
         export(runtimeModule, runtimeModuleXml);
+        export(deploymentModule, deploymentModuleXml);
     }
 
     private void addDependencies(ModuleDescriptor module, List<String> dependencies) {
@@ -278,44 +321,34 @@ public class ModuleGenerator {
     }
 
     public Set<String> determineApiPaths() throws IOException {
-        Path dir = Paths.get(this.project.getBuild().getOutputDirectory());
-
-        Set<String> apiPaths = new HashSet<>();
-
-        if (Files.exists(dir)) {
-            FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().endsWith(".class")) {
-                        if (file.toString().contains("runtime")) {
-                            // ignore
-                        } else {
-                            apiPaths.add(dir.relativize(file.getParent()).toString());
-                        }
-                    }
-                    return super.visitFile(file, attrs);
-                }
-            };
-
-            Files.walkFileTree(dir, visitor);
-        }
-        return apiPaths;
-
+        System.err.println( "determine API" );
+        return determinePaths((file) -> (!(file.contains("runtime") || file.contains("deployment"))));
     }
 
     public Set<String> determineRuntimePaths() throws IOException {
+        System.err.println( "determine runtime" );
+        return determinePaths((file) -> file.contains("runtime"));
+    }
+
+    public Set<String> determineDeploymentPaths() throws IOException {
+        System.err.println( "determine deployment" );
+        return determinePaths((file) -> file.contains("deployment"));
+    }
+
+    public Set<String> determinePaths(Predicate<String> pred) throws IOException {
         Path dir = Paths.get(this.project.getBuild().getOutputDirectory());
 
-        Set<String> runtimePaths = new HashSet<>();
+        Set<String> paths = new HashSet<>();
 
         if (Files.exists(dir)) {
             FileVisitor<Path> visitor = new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     if (file.getFileName().toString().endsWith(".class")) {
-                        if (file.toString().contains("runtime")) {
-                            runtimePaths.add(dir.relativize(file.getParent()).toString());
-                        } else {
+                        System.err.println( "test: " + file.getFileName().toString() );
+                        if (pred.test(file.toString())) {
+                            System.err.println( "passed: "  + file.getFileName() );
+                            paths.add(dir.relativize(file.getParent()).toString());
                         }
                     }
                     return super.visitFile(file, attrs);
@@ -324,7 +357,7 @@ public class ModuleGenerator {
 
             Files.walkFileTree(dir, visitor);
         }
-        return runtimePaths;
+        return paths;
 
     }
 
