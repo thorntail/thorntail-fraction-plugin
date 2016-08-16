@@ -56,6 +56,7 @@ public class ProcessMojo extends AbstractMojo {
         executeProvidedDependenciesGenerator();
         executeModuleFiller();
         executeJandexer();
+        executePropertiesGenerator();
     }
 
     protected void executeBootstrapMarker() throws MojoExecutionException {
@@ -143,6 +144,20 @@ public class ProcessMojo extends AbstractMojo {
         } catch (IOException e) {
             throw new MojoExecutionException("Unable to execute jandexer", e);
         }
+    }
+
+
+    protected void executePropertiesGenerator() throws MojoExecutionException {
+        PropertiesGenerator generator = new PropertiesGenerator(
+                getLog(),
+                this.project );
+
+        try {
+            generator.execute();
+        } catch (IOException e) {
+            throw new MojoExecutionException("Unable to execute properties generator" );
+        }
+
     }
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)

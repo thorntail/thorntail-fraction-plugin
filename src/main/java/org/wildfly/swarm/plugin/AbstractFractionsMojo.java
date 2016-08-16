@@ -43,9 +43,7 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
  */
 public abstract class AbstractFractionsMojo extends AbstractMojo {
 
-    protected static final String DEFAULT_STABILITY_INDEX = "unstable";
 
-    protected static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
 
     protected static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
 
@@ -57,7 +55,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                 .filter(this::isSwarmProject)
                 .map(this::toProject)
                 .filter(e -> e != null)
-                .filter(this::isFraction)
+                .filter(FractionDetector::isFraction)
                 .collect(Collectors.toList());
     }
 
@@ -83,7 +81,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
             Properties properties = fractionProject.getProperties();
             current.setTags(properties.getProperty(FRACTION_TAGS_PROPERTY_NAME, ""));
             current.setInternal(Boolean.parseBoolean(properties.getProperty(FRACTION_INTERNAL_PROPERTY_NAME)));
-            current.setStabilityIndex(StabilityLevel.parse(properties.getProperty(FRACTION_STABILITY_PROPERTY_NAME, DEFAULT_STABILITY_INDEX)));
+            current.setStabilityIndex(StabilityLevel.of(fractionProject));
             Set<Artifact> deps = fractionProject.getArtifacts();
 
             for (Artifact each : deps) {
@@ -129,14 +127,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     protected boolean isSwarmProject(Dependency dependency) {
         return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
-    }
-
-    protected boolean isFraction(MavenProject project) {
-        boolean result = project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
-                || project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME) != null
-                || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME ) != null;
-
-        return result;
     }
 
     @Inject
