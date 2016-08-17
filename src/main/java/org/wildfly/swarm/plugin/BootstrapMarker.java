@@ -112,7 +112,7 @@ public class BootstrapMarker {
 
     private void createBootstrapMarker(Path modulePath, String moduleName) throws IOException {
         if (moduleName == null) {
-            moduleName = modulePath.toString().replaceAll(File.separator, ".");
+            moduleName = modulePath.toString().replace(File.separator, ".");
             this.log.info("Using " + moduleName + " as conventional bootstrap module name");
         }
 
