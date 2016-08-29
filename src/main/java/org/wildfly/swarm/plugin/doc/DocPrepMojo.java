@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.doc;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,6 +41,8 @@ import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.exporter.ExplodedExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.wildfly.swarm.plugin.AbstractFractionsMojo;
+import org.wildfly.swarm.plugin.StabilityLevel;
 
 @Mojo(name = "prep-doc-source",
         defaultPhase = LifecyclePhase.GENERATE_SOURCES)
@@ -76,7 +78,7 @@ public class DocPrepMojo extends AbstractFractionsMojo {
                                             d.getVersion(),
                                             null));
 
-        fractions().values()
+        fractions()
                 .forEach(fraction -> exportSources(fraction.getName(),
                                                    fraction.getGroupId(),
                                                    fraction.getArtifactId(),

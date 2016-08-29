@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.process;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.MatchResult;
@@ -48,7 +49,6 @@ import javax.inject.Inject;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Resource;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -69,13 +69,14 @@ import org.jboss.shrinkwrap.descriptor.impl.jbossmodule13.ModuleDescriptorImpl;
 import org.jboss.shrinkwrap.descriptor.spi.node.Node;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
+import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * @author Bob McWhirter
  * @author Ken Finnigan
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-public class ModuleFiller {
+public class ModuleFiller implements Function<FractionMetadata,FractionMetadata> {
 
     private final Log log;
 
@@ -89,46 +90,52 @@ public class ModuleFiller {
         this.project = project;
     }
 
-    public void execute() throws IOException {
-        loadRewriteRules();
+    public FractionMetadata apply(FractionMetadata meta) {
+        try {
+            loadRewriteRules();
 
-        Set<String> requiredModules = new HashSet<>();
-        Set<String> availableModules = new HashSet<>();
-        walkProjectModules(requiredModules, availableModules);
-        walkDependencyModules(requiredModules, availableModules);
+            Set<String> requiredModules = new HashSet<>();
+            Set<String> availableModules = new HashSet<>();
+            walkProjectModules(requiredModules, availableModules);
+            walkDependencyModules(requiredModules, availableModules);
 
-        Map<String, File> potentialModules = new HashMap<>();
-        indexPotentialModules(potentialModules);
+            Map<String, File> potentialModules = new HashMap<>();
+            indexPotentialModules(potentialModules);
 
-        if ( requiredModules.isEmpty() ) {
-            return;
-        }
-
-        locateFillModules(potentialModules, requiredModules, availableModules);
-
-        long size = 0;
-        DecimalFormat fmt = new DecimalFormat("####.00");
-        for (String each : this.allArtifacts) {
-            ArtifactRequest req = new ArtifactRequest();
-            org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(each);
-            req.setArtifact(artifact);
-
-            try {
-                ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
-                if (artifactResult.isResolved()) {
-                    File file = artifactResult.getArtifact().getFile();
-                    long artifactSize = Files.size(file.toPath());
-                    size += artifactSize;
-                    //getLog().info( "Artifact: " + each + ":  " + fmt.format( artifactSize / ( 1024.0*1024.0) ) + "mb");
-                    this.log.info(String.format("%100s %10s mb", each, fmt.format(artifactSize / (1024.0 * 1024.0))));
-                }
-            } catch (ArtifactResolutionException e) {
-                //e.printStackTrace();
-            } catch (IOException e) {
-                //e.printStackTrace();
+            if (requiredModules.isEmpty()) {
+                return meta;
             }
+
+            locateFillModules(potentialModules, requiredModules, availableModules);
+
+            long size = 0;
+            DecimalFormat fmt = new DecimalFormat("####.00");
+            for (String each : this.allArtifacts) {
+                ArtifactRequest req = new ArtifactRequest();
+                org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(each);
+                req.setArtifact(artifact);
+
+                try {
+                    ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
+                    if (artifactResult.isResolved()) {
+                        File file = artifactResult.getArtifact().getFile();
+                        long artifactSize = Files.size(file.toPath());
+                        size += artifactSize;
+                        //getLog().info( "Artifact: " + each + ":  " + fmt.format( artifactSize / ( 1024.0*1024.0) ) + "mb");
+                        this.log.info(String.format("%100s %10s mb", each, fmt.format(artifactSize / (1024.0 * 1024.0))));
+                    }
+                } catch (ArtifactResolutionException e) {
+                    //e.printStackTrace();
+                } catch (IOException e) {
+                    //e.printStackTrace();
+                }
+            }
+            this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
+        } catch (IOException e) {
+            this.log.error( e.getMessage(), e );
         }
-        this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
+
+        return meta;
     }
 
     protected void loadRewriteRules() throws IOException {
