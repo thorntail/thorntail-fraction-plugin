@@ -1,11 +1,13 @@
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.process;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.DirectoryScanner;
@@ -14,13 +16,15 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.IndexWriter;
 import org.jboss.jandex.Indexer;
+import org.wildfly.swarm.plugin.FileSet;
+import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * Generate a Jandex index for classes compiled as part of the current project.
  *
  * @author Heiko Braun
  */
-public class Jandexer {
+public class Jandexer implements Function<FractionMetadata,FractionMetadata> {
 
     public static final String INDEX_NAME = "swarm-jandex.idx";
 
@@ -29,7 +33,11 @@ public class Jandexer {
         this.classesDir = classesDir;
     }
 
-    public void execute() throws IOException {
+    public FractionMetadata apply(FractionMetadata meta) {
+        if ( ! meta.hasJavaCode() ) {
+            return meta;
+        }
+
         final FileSet fs = new FileSet();
         fs.setDirectory(classesDir);
         fs.setIncludes(Collections.singletonList("**/*.class"));
@@ -37,7 +45,7 @@ public class Jandexer {
         final Indexer indexer = new Indexer();
         final File dir = fs.getDirectory();
         if (!dir.exists()) {
-            return;
+            return meta;
         }
 
         final DirectoryScanner scanner = new DirectoryScanner();
@@ -62,13 +70,10 @@ public class Jandexer {
 
         for (final String file : files) {
             if (file.endsWith(".class")) {
-                FileInputStream fis = null;
-                try {
-                    fis = new FileInputStream(new File(dir, file));
-
+                try (FileInputStream fis = new FileInputStream(new File(dir, file)) ) {
                     final ClassInfo info = indexer.index(fis);
-                } finally {
-                    IOUtil.close(fis);
+                } catch (IOException e) {
+                    this.log.error( e.getMessage() );
                 }
             }
         }
@@ -83,9 +88,12 @@ public class Jandexer {
             final IndexWriter writer = new IndexWriter(indexOut);
             final Index index = indexer.complete();
             writer.write(index);
+        } catch (IOException e) {
+            this.log.error(e.getMessage(), e);
         } finally {
             IOUtil.close(indexOut);
         }
+        return meta;
     }
 
     private Log log;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.process;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
