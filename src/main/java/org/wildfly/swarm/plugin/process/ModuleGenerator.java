@@ -1,7 +1,8 @@
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.process;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -15,7 +16,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -30,11 +31,12 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule15.ModuleDescriptor;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule15.PathSetType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule15.ResourcesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule15.SystemDependencyType;
+import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * @author Bob McWhirter
  */
-public class ModuleGenerator {
+public class ModuleGenerator implements Function<FractionMetadata, FractionMetadata> {
 
     private final Log log;
 
@@ -46,23 +48,22 @@ public class ModuleGenerator {
         this.project = project;
     }
 
-    public void execute() throws IOException {
-        Path moduleConf = this.project.getBasedir().toPath().resolve("module.conf");
-        if (Files.exists(moduleConf)) {
-            log.debug("Processing: " + moduleConf);
-
+    @Override
+    public FractionMetadata apply(FractionMetadata meta) {
+        if (meta.hasModuleConf()) {
+            Path moduleConf = meta.getModuleConf();
             List<String> dependencies;
             try (BufferedReader reader = new BufferedReader(new FileReader(moduleConf.toFile()))) {
                 dependencies = reader.lines()
                         .map(String::trim)
                         .filter(line -> !line.startsWith("#"))
                         .collect(Collectors.toList());
+                generate(meta.getBaseModulePath(), dependencies);
+            } catch (IOException e) {
+                this.log.error( e.getMessage(), e );
             }
-
-            Path moduleRoot = BootstrapMarker.baseModulePath(this.project);
-
-            generate(moduleRoot, dependencies);
         }
+        return meta;
     }
 
     public void generate(Path root, List<String> dependencies) throws IOException {
@@ -93,12 +94,10 @@ public class ModuleGenerator {
                 .createExcludeSet();
 
         for (String path : apiPaths) {
-            System.err.println("runtime exclude 1: " + path);
             runtimeExcludeSet.createPath().name(path);
         }
 
         for (String path : deploymentPaths) {
-            System.err.println("runtime exclude 2: " + path);
             runtimeExcludeSet.createPath().name(path);
         }
 
@@ -321,17 +320,14 @@ public class ModuleGenerator {
     }
 
     public Set<String> determineApiPaths() throws IOException {
-        System.err.println( "determine API" );
         return determinePaths((file) -> (!(file.contains("runtime") || file.contains("deployment"))));
     }
 
     public Set<String> determineRuntimePaths() throws IOException {
-        System.err.println( "determine runtime" );
         return determinePaths((file) -> file.contains("runtime"));
     }
 
     public Set<String> determineDeploymentPaths() throws IOException {
-        System.err.println( "determine deployment" );
         return determinePaths((file) -> file.contains("deployment"));
     }
 
@@ -345,9 +341,7 @@ public class ModuleGenerator {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     if (file.getFileName().toString().endsWith(".class")) {
-                        System.err.println( "test: " + file.getFileName().toString() );
                         if (pred.test(file.toString())) {
-                            System.err.println( "passed: "  + file.getFileName() );
                             paths.add(dir.relativize(file.getParent()).toString());
                         }
                     }
@@ -360,6 +354,5 @@ public class ModuleGenerator {
         return paths;
 
     }
-
 
 }

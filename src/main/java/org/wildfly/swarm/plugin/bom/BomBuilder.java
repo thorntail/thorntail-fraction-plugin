@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.wildfly.swarm.plugin;
+package org.wildfly.swarm.plugin.bom;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.maven.project.MavenProject;
+import org.wildfly.swarm.plugin.DependencyMetadata;
 
 public class BomBuilder {
 
@@ -27,18 +27,20 @@ public class BomBuilder {
 
     public static String generateBOM(final MavenProject rootProject,
                                      final String template,
-                                     final Collection<Fraction> fractions) {
+                                     final Collection<DependencyMetadata> bomItems) {
+
         return template.replace("#{dependencies}",
-                                String.join("\n",
-                                        fractions.stream()
-                                        .map(BomBuilder::pomGav)
-                                        .collect(Collectors.toList())))
-                .replace("#{bom-artifactId}", rootProject.getArtifactId() )
-                .replace("#{bom-name}", rootProject.getName() )
-                .replace("#{bom-description}", rootProject.getDescription() );
+                String.join("\n",
+                        bomItems.stream()
+                                .map(BomBuilder::pomGav)
+                                .collect(Collectors.toList())))
+                .replace("#{bom-artifactId}", rootProject.getArtifactId())
+                .replace("#{bom-name}", rootProject.getName())
+                .replace("#{bom-description}", rootProject.getDescription());
+
     }
 
-    private static String pomGav(Fraction project) {
+    private static String pomGav(DependencyMetadata project) {
         return pomGav( project.getGroupId(), project.getArtifactId(), project.getVersion() );
     }
 

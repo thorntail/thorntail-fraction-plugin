@@ -2,7 +2,7 @@
 <!--
   ~ Copyright 2015 Red Hat, Inc. and/or its affiliates.
   ~
-  ~ Licensed under the Apache License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+  ~ Licensed under the Apache License getVersion 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
@@ -28,6 +28,7 @@
     <version.org.jboss.shrinkwrap>1.1.2</version.org.jboss.shrinkwrap>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-10</version.org.jboss.shrinkwrap.descriptors>
     <version.jackson>2.7.3</version.jackson>
+    <version.org.snakeyaml>1.17</version.org.snakeyaml>
   </properties>
 
   <scm>
@@ -92,6 +93,12 @@
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-xml</artifactId>
       <version>${version.jackson}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>${version.org.snakeyaml}</version>
     </dependency>
 
     <!-- dependencies to annotations -->
