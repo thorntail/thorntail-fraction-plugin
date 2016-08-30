@@ -28,6 +28,7 @@
     <version.org.jboss.shrinkwrap>1.1.2</version.org.jboss.shrinkwrap>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0-alpha-10</version.org.jboss.shrinkwrap.descriptors>
     <version.jackson>2.7.3</version.jackson>
+    <version.org.snakeyaml>1.17</version.org.snakeyaml>
   </properties>
 
   <scm>
@@ -92,6 +93,12 @@
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-xml</artifactId>
       <version>${version.jackson}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>${version.org.snakeyaml}</version>
     </dependency>
 
     <!-- dependencies to annotations -->
