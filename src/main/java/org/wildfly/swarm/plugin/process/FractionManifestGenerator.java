@@ -45,7 +45,7 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
 
         Yaml yaml = new Yaml( options );
 
-        Map data = new LinkedHashMap() {{
+        Map<String,Object> data = new LinkedHashMap<String,Object>() {{
             //noinspection unchecked
             put("name", meta.getName());
             put("description", meta.getDescription());
@@ -55,7 +55,7 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
             if ( meta.hasJavaCode() && meta.getModule() != null) {
                 put("module", meta.getModule());
             }
-            put("stability", new HashMap() {{
+            put("stability", new HashMap<String,Object>() {{
                 put("level", meta.getStabilityIndex().toString());
                 put("index", meta.getStabilityIndex().ordinal());
             }});
