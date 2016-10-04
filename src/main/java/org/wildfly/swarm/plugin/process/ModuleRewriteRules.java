@@ -17,6 +17,7 @@ package org.wildfly.swarm.plugin.process;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
@@ -35,6 +36,10 @@ public class ModuleRewriteRules {
 
     public void makeOptional(String name, String slot) {
         this.rules.add(new Optional(name, slot));
+    }
+
+    public void include(String name, String slot) {
+        this.rules.add(new Include(name, slot));
     }
 
     public void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
@@ -60,6 +65,30 @@ public class ModuleRewriteRules {
         public abstract void rewrite(ModuleDescriptor desc);
     }
 
+    public static class Include extends Rule {
+        public Include(String name, String slot) {
+            this.name = name;
+            this.slot = slot;
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
+            // If module dependency already exists, ignore
+            if (dependencies.getAllModule().stream()
+                    .filter(d -> name.equals(d.getName()))
+                    .filter(d -> Objects.equals(slot, d.getSlot()))
+                    .count() == 0L) {
+                dependencies.createModule().name(name).slot(slot == null ? "main" : slot);
+            }
+        }
+
+        private final String name;
+
+        private final String slot;
+    }
+
+
     public static class Optional extends Rule {
         public Optional(String name, String slot) {
             this.name = name;
@@ -83,9 +112,9 @@ public class ModuleRewriteRules {
             }
         }
 
-        private String name;
+        private final String name;
 
-        private String slot;
+        private final String slot;
     }
 
     public static class Replace extends Rule {

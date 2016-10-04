@@ -75,8 +75,8 @@ public class ModuleRewriteConf {
                 if (line.isEmpty()) {
                     continue;
                 }
-                if ( line.startsWith(REPLACE) ) {
-                    String[] chunks = line.substring(REPLACE.length()).trim().split( ">" );
+                if (line.startsWith(REPLACE)) {
+                    String[] chunks = line.substring(REPLACE.length()).trim().split(">");
 
                     String origName = null;
                     String origSlot = "main";
@@ -92,11 +92,11 @@ public class ModuleRewriteConf {
 
                     String[] replaceParts = chunks[1].trim().split(":");
                     replaceName = replaceParts[0];
-                    if ( replaceParts.length > 1 ) {
+                    if (replaceParts.length > 1) {
                         replaceSlot = replaceParts[1];
                     }
 
-                    current.replace( origName, origSlot, replaceName, replaceSlot );
+                    current.replace(origName, origSlot, replaceName, replaceSlot);
                 } else if (line.startsWith(OPTIONAL)) {
                     String name = null;
                     String slot = "main";
@@ -123,14 +123,27 @@ public class ModuleRewriteConf {
                         current = new ModuleRewriteRules(name, slot);
                         this.rules.put(name + ":" + slot, current);
                     }
+                } else if (line.startsWith(INCLUDE)) {
+                    String name = null;
+                    String slot = null;
+
+                    String[] parts = line.substring(INCLUDE.length()).trim().split(":");
+                    name = parts[0];
+                    if (parts.length > 1) {
+                        slot = parts[1];
+                    }
+
+                    current.include(name, slot);
                 } else {
-                    System.err.println(lineNumber + ":Lines should blank, or start with " + MODULE + " or " + OPTIONAL + ": " + line);
+                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + " or " + OPTIONAL + " - " + line);
                 }
             }
         }
     }
 
     private static final String MODULE = "module:";
+
+    private static final String INCLUDE = "include:";
 
     private static final String OPTIONAL = "optional:";
 

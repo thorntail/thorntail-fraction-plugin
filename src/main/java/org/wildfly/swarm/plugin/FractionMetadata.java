@@ -43,7 +43,7 @@ public class FractionMetadata extends DependencyMetadata {
                 || isInternal()
                 || isBootstrap()
                 || this.stabilityIndex != null
-                || hasJavaFraction() ) {
+                || hasJavaFraction()) {
             return true;
         }
 
@@ -69,11 +69,11 @@ public class FractionMetadata extends DependencyMetadata {
 
     @JsonProperty("tags")
     public String getTagsString() {
-        if ( this.tags.isEmpty() ) {
+        if (this.tags.isEmpty()) {
             return "";
         }
 
-        return String.join( ",", this.tags);
+        return String.join(",", this.tags);
     }
 
     public void setTags(List<String> tags) {
@@ -153,13 +153,13 @@ public class FractionMetadata extends DependencyMetadata {
 
     @JsonIgnore
     public String getModule() {
-        if ( this.bootstrap != null ) {
-            if ( this.bootstrap.equals( "false" ) ) {
+        if (this.bootstrap != null) {
+            if (this.bootstrap.equals("false")) {
                 return null;
             }
             return this.bootstrap;
         }
-        return this.baseModulePath.toString().replace(File.separatorChar, '.' );
+        return this.baseModulePath.toString().replace(File.separatorChar, '.');
     }
 
     public void setDescription(String description) {
@@ -172,7 +172,7 @@ public class FractionMetadata extends DependencyMetadata {
 
     @JsonIgnore
     public StabilityLevel getStabilityIndex() {
-        if ( this.stabilityIndex == null ) {
+        if (this.stabilityIndex == null) {
             return StabilityLevel.UNSTABLE;
         }
         return this.stabilityIndex;
