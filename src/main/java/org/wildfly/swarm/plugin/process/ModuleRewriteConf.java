@@ -147,6 +147,8 @@ public class ModuleRewriteConf {
 
     private static final String OPTIONAL = "optional:";
 
+    private static final String INCLUDE = "include:";
+
     private static final String REPLACE = "replace:";
 
     private Map<String, ModuleRewriteRules> rules = new HashMap<>();
