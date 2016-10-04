@@ -29,7 +29,9 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 import org.wildfly.swarm.plugin.FractionMetadata;
 
@@ -121,7 +123,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
 
         try (FileWriter writer = new FileWriter(outFile)) {
-
+            writer.write("swarmVersion='"+swarmVersion+"';");
             writer.write("fractionList = ");
             writer.flush();
 
@@ -147,4 +149,8 @@ public class FractionListMojo extends AbstractFractionsMojo {
         artifact.setFile(outFile);
         this.project.addAttachedArtifact(artifact);
     }
+
+    @Parameter(defaultValue = "${project.version}", readonly = true)
+    public String swarmVersion;
+
 }
