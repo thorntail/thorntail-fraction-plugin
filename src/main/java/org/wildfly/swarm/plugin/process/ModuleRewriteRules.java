@@ -42,6 +42,10 @@ public class ModuleRewriteRules {
         this.rules.add(new Include(name, slot));
     }
 
+    public void export(String name, String slot) {
+        this.rules.add(new Export(name, slot));
+    }
+
     public void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
         System.err.println("adding replace: " + origName + ":" + origSlot + " with " + replaceName + ":" + replaceSlot);
         this.rules.add(new Replace(origName, origSlot, replaceName, replaceSlot));
@@ -88,6 +92,26 @@ public class ModuleRewriteRules {
         private final String slot;
     }
 
+    public static class Export extends Rule {
+        public Export(String name, String slot) {
+            this.name = name;
+            this.slot = slot;
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
+            dependencies.getAllModule().stream()
+                    .filter(d -> name.equals(d.getName()))
+                    .filter(d -> Objects.equals(slot, d.getSlot()))
+                    .findFirst()
+                    .ifPresent(d -> d.export(true));
+        }
+
+        private final String name;
+
+        private final String slot;
+    }
 
     public static class Optional extends Rule {
         public Optional(String name, String slot) {
