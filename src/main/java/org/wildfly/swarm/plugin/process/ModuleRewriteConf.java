@@ -123,6 +123,17 @@ public class ModuleRewriteConf {
                         current = new ModuleRewriteRules(name, slot);
                         this.rules.put(name + ":" + slot, current);
                     }
+                } else if (line.startsWith(INCLUDE)) {
+                    String name = null;
+                    String slot = null;
+
+                    String[] parts = line.substring(INCLUDE.length()).trim().split(":");
+                    name = parts[0];
+                    if (parts.length > 1) {
+                        slot = parts[1];
+                    }
+
+                    current.include(name, slot);
                 } else {
                     System.err.println(lineNumber + ":Lines should blank, or start with " + MODULE + " or " + OPTIONAL + ": " + line);
                 }
@@ -133,6 +144,8 @@ public class ModuleRewriteConf {
     private static final String MODULE = "module:";
 
     private static final String OPTIONAL = "optional:";
+
+    private static final String INCLUDE = "include:";
 
     private static final String REPLACE = "replace:";
 
