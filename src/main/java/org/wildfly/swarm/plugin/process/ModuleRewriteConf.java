@@ -134,8 +134,19 @@ public class ModuleRewriteConf {
                     }
 
                     current.include(name, slot);
+                } else if (line.startsWith(EXPORT)) {
+                    String name = null;
+                    String slot = null;
+
+                    String[] parts = line.substring(EXPORT.length()).trim().split(":");
+                    name = parts[0];
+                    if (parts.length > 1) {
+                        slot = parts[1];
+                    }
+
+                    current.export(name, slot);
                 } else {
-                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + " or " + OPTIONAL + " - " + line);
+                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE +", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
             }
         }
@@ -144,6 +155,8 @@ public class ModuleRewriteConf {
     private static final String MODULE = "module:";
 
     private static final String INCLUDE = "include:";
+
+    private static final String EXPORT = "export:";
 
     private static final String OPTIONAL = "optional:";
 
