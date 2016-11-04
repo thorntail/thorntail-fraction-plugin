@@ -59,6 +59,7 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
                 put("level", meta.getStabilityIndex().toString());
                 put("index", meta.getStabilityIndex().ordinal());
             }});
+            put("internal", meta.isInternal());
             put("dependencies",
                     meta.getDependencies()
                             .stream()
