@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -342,7 +343,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     if (file.getFileName().toString().endsWith(".class")) {
                         if (pred.test(file.toString())) {
-                            paths.add(dir.relativize(file.getParent()).toString());
+                            paths.add(javaSlashize(dir.relativize(file.getParent())));
                         }
                     }
                     return super.visitFile(file, attrs);
@@ -352,6 +353,21 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
             Files.walkFileTree(dir, visitor);
         }
         return paths;
+
+    }
+
+    public String javaSlashize(Path path) {
+
+        List<String> parts = new ArrayList<>();
+
+        int numParts = path.getNameCount();
+
+        for ( int i = 0 ; i < numParts ; ++i ) {
+            parts.add( path.getName(i).toString());
+        }
+
+
+        return String.join( "/", parts);
 
     }
 
