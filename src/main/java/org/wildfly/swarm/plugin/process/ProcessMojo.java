@@ -15,6 +15,8 @@
  */
 package org.wildfly.swarm.plugin.process;
 
+import java.io.File;
+
 import javax.inject.Inject;
 
 import org.apache.maven.plugin.AbstractMojo;
@@ -57,6 +59,7 @@ public class ProcessMojo extends AbstractMojo {
         new CDIMarker(getLog(), this.project).apply(meta);
         new ModuleFiller(getLog(), this.repositorySystemSession, this.resolver, this.project).apply(meta);
         new FractionManifestGenerator( getLog(), this.project ).apply( meta );
+        new Jandexer( getLog(), new File( this.project.getBuild().getOutputDirectory() ) ).apply( meta );
     }
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
