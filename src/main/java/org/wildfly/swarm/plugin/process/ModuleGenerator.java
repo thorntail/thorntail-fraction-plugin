@@ -46,8 +46,6 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
     private static final String MODULE_XML = "module.xml";
 
-    private static final String WELD_VERSION = "3";
-
     private final Log log;
 
     private final MavenProject project;
@@ -126,15 +124,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         runtimeModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.api").slot(WELD_VERSION);
-
-        runtimeModule.getOrCreateDependencies()
-                .createModule()
-                .name("org.jboss.weld.spi").slot(WELD_VERSION);
-
-        runtimeModule.getOrCreateDependencies()
-                .createModule()
-                .name("org.jboss.weld.core").slot(WELD_VERSION);
+                .name("org.jboss.weld.se");
 
         addDependencies(runtimeModule, dependencies);
 
@@ -177,15 +167,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         apiModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.api").slot(WELD_VERSION);
-
-        apiModule.getOrCreateDependencies()
-                .createModule()
-                .name("org.jboss.weld.spi").slot(WELD_VERSION);
-
-        apiModule.getOrCreateDependencies()
-                .createModule()
-                .name("org.jboss.weld.core").slot(WELD_VERSION);
+                .name("org.jboss.weld.se");
 
         addDependencies(apiModule, dependencies);
 
