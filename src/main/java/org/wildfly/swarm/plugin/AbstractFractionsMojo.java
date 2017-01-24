@@ -45,12 +45,12 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
 
-    private static List<MavenProject> PROBABLY_FRACTIONS = null;
+    private static List<MavenProject> PROBABLE_FRACTIONS = null;
 
-    public List<MavenProject> probablyFractionProjects() {
-        if (PROBABLY_FRACTIONS == null) {
+    public List<MavenProject> probableFractionProjects() {
+        if (PROBABLE_FRACTIONS == null) {
 
-            PROBABLY_FRACTIONS = this.project.getDependencyManagement().getDependencies()
+            PROBABLE_FRACTIONS = this.project.getDependencyManagement().getDependencies()
                     .stream()
                     .filter(this::isSwarmProject)
                     .filter(this::isNotArquillianArtifact)
@@ -58,11 +58,11 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                     .collect(Collectors.toList());
         }
 
-        return PROBABLY_FRACTIONS;
+        return PROBABLE_FRACTIONS;
     }
 
     public synchronized Set<FractionMetadata> fractions() {
-        return probablyFractionProjects()
+        return probableFractionProjects()
                 .stream()
                 .map(FractionRegistry.INSTANCE::of)
                 .filter(Objects::nonNull)

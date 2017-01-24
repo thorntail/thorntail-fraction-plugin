@@ -88,16 +88,14 @@ public class BomMojo extends AbstractFractionsMojo {
         project.setFile(bomPath.toFile());
     }
 
-    protected String readTemplate() throws MojoFailureException {
+    private String readTemplate() throws MojoFailureException {
         if (this.template == null) {
-
             throw new MojoFailureException("No template specified");
         }
-        try {
 
+        try {
             return new String(Files.readAllBytes(this.template.toPath()), "UTF-8");
         } catch (IOException e) {
-
             throw new MojoFailureException("Failed to read template " + this.template, e);
         }
     }

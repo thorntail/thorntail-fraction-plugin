@@ -23,15 +23,15 @@ import org.apache.maven.project.MavenProject;
  */
 public class FractionRegistry {
 
-    protected static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
+    private static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
 
-    protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
+    private static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
 
-    protected static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
+    private static final String FRACTION_STABILITY_PROPERTY_NAME = "swarm.fraction.stability";
 
-    protected static final String FRACTION_BOOTSTRAP_PROPERTY = "swarm.fraction.bootstrap";
+    private static final String FRACTION_BOOTSTRAP_PROPERTY = "swarm.fraction.bootstrap";
 
-    protected static final String BOM_PROPERTY = "swarm.bom";
+    private static final String BOM_PROPERTY = "swarm.bom";
 
     private Map<Key, FractionMetadata> fractionRegistry = new HashMap<>();
 
@@ -67,7 +67,7 @@ public class FractionRegistry {
         return meta;
     }
 
-    protected FractionMetadata build(MavenProject project) {
+    private FractionMetadata build(MavenProject project) {
         FractionMetadata meta = new FractionMetadata(project.getGroupId(), project.getArtifactId(), project.getVersion());
 
         meta.setName(project.getName());
@@ -76,7 +76,7 @@ public class FractionRegistry {
         String stabilityName = project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME);
 
         if (stabilityName != null) {
-            StabilityLevel stabilityLevel = null;
+            StabilityLevel stabilityLevel;
             try {
                 stabilityLevel = StabilityLevel.valueOf(stabilityName.toUpperCase());
             } catch (NullPointerException | IllegalArgumentException e) {
@@ -144,7 +144,7 @@ public class FractionRegistry {
         return meta;
     }
 
-    protected static Path baseModulePath(FractionMetadata meta) {
+    private static Path baseModulePath(FractionMetadata meta) {
         Path path = meta.getJavaFraction();
         if (path != null) {
             return path.getParent();
@@ -154,7 +154,7 @@ public class FractionRegistry {
         return path;
     }
 
-    protected static boolean hasJavaCode(MavenProject project) {
+    private static boolean hasJavaCode(MavenProject project) {
         Path src = Paths.get(project.getBuild().getSourceDirectory());
 
         AtomicReference<Boolean> hasJava = new AtomicReference<>(false);
@@ -179,7 +179,7 @@ public class FractionRegistry {
         return hasJava.get();
     }
 
-    protected static Path findJavaFraction(MavenProject project) {
+    private static Path findJavaFraction(MavenProject project) {
         if (project.getGroupId().equals("org.wildfly.swarm") && project.getArtifactId().equals("spi")) {
             return null;
         }
@@ -224,7 +224,7 @@ public class FractionRegistry {
         private final String packaging;
 
 
-        public Key(String groupId, String artifactId, String version, String classifier, String packaging) {
+        Key(String groupId, String artifactId, String version, String classifier, String packaging) {
             this.groupId = groupId;
             this.artifactId = artifactId;
             this.version = version;
@@ -232,7 +232,7 @@ public class FractionRegistry {
             this.packaging = packaging;
         }
 
-        public String compositeKey() {
+        String compositeKey() {
             return this.groupId + ":" + this.artifactId + ":" + this.version + ":" + this.classifier + ":" + this.packaging;
         }
 
@@ -243,10 +243,7 @@ public class FractionRegistry {
 
         @Override
         public boolean equals(Object obj) {
-            if (obj instanceof Key) {
-                return compositeKey().equals(((Key) obj).compositeKey());
-            }
-            return false;
+            return obj instanceof Key && compositeKey().equals(((Key) obj).compositeKey());
         }
 
         @Override

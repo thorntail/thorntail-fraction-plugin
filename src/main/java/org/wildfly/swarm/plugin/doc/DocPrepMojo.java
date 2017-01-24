@@ -62,11 +62,10 @@ public class DocPrepMojo extends AbstractFractionsMojo {
         this.sourceOutputDir.mkdirs();
         final Map<String, String> extraModules = new HashMap<>();
 
-        this.extraModules.stream()
-                .forEach(s -> {
-                    final String[] parts = s.split(":");
-                    extraModules.put(parts[0], parts[1]);
-                });
+        this.extraModules.forEach(s -> {
+            final String[] parts = s.split(":");
+            extraModules.put(parts[0], parts[1]);
+        });
 
         this.project.getDependencyManagement().getDependencies()
                 .stream()
@@ -86,7 +85,7 @@ public class DocPrepMojo extends AbstractFractionsMojo {
                                                    fraction.getStabilityIndex()));
     }
 
-    protected void exportSources(final String name,
+    private void exportSources(final String name,
                                  final String groupId,
                                  final String artifactId,
                                  final String version,
@@ -122,7 +121,7 @@ public class DocPrepMojo extends AbstractFractionsMojo {
         }
     }
 
-    protected File resolveArtifact(final String group,
+    private File resolveArtifact(final String group,
                                    final String name,
                                    final String version,
                                    final String classifier,

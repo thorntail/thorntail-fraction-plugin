@@ -21,14 +21,12 @@ import java.util.stream.Collectors;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 
-public class BomBuilder {
+class BomBuilder {
 
     private BomBuilder() {
     }
 
-    public static final String SWARM_GROUP = "org.wildfly.swarm";
-
-    public static String generateBOM(final MavenProject rootProject,
+    static String generateBOM(final MavenProject rootProject,
                                      final String template,
                                      final Collection<DependencyMetadata> bomItems) {
 

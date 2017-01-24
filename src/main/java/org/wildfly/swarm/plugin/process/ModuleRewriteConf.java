@@ -36,7 +36,7 @@ public class ModuleRewriteConf {
         }
     }
 
-    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
+    ModuleDescriptor rewrite(ModuleDescriptor desc) {
         String descName = desc.getName();
         String descSlot = desc.getSlot();
 
@@ -60,12 +60,12 @@ public class ModuleRewriteConf {
 
     }
 
-    protected void load(Path file) throws IOException {
+    private void load(Path file) throws IOException {
         try (BufferedReader in = new BufferedReader(new FileReader(file.toFile()))) {
 
             ModuleRewriteRules current = null;
 
-            String line = null;
+            String line;
 
             int lineNumber = 0;
 
@@ -120,7 +120,7 @@ public class ModuleRewriteConf {
 
                     current = rules.get(name + ":" + slot);
                     if (current == null) {
-                        current = new ModuleRewriteRules(name, slot);
+                        current = new ModuleRewriteRules();
                         this.rules.put(name + ":" + slot, current);
                     }
                 } else if (line.startsWith(INCLUDE)) {
