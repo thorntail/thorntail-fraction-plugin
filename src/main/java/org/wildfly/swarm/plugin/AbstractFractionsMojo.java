@@ -58,6 +58,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
             PROBABLY_FRACTIONS = this.project.getDependencyManagement().getDependencies()
                     .stream()
                     .filter(this::isSwarmProject)
+                    .filter(this::isNotArquillianArtifact)
                     .map(this::toProject)
                     .collect(Collectors.toList());
         }
@@ -97,6 +98,14 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     protected boolean isSwarmProject(Dependency dependency) {
         return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
+    }
+
+    protected boolean isNotArquillianArtifact(Dependency dependency) {
+        return !dependency.getArtifactId().contains("arquillian");
+    }
+
+    protected FractionMetadata arquillianFraction(String version) {
+        return new FractionMetadata("org.wildfly.swarm", "arquillian", version);
     }
 
     @Inject

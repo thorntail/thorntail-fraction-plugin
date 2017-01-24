@@ -68,6 +68,7 @@ public class BomMojo extends AbstractFractionsMojo {
         List<DependencyMetadata> bomItems = new ArrayList<>();
         bomItems.addAll( fractions );
         bomItems.addAll( FractionRegistry.INSTANCE.bomInclusions() );
+        bomItems.add(arquillianFraction(this.project.getVersion()));
 
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
