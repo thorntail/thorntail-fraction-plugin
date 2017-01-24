@@ -29,6 +29,9 @@
     <version.jackson>2.7.3</version.jackson>
     <version.jandex>2.0.3.Final</version.jandex>
     <version.org.snakeyaml>1.17</version.org.snakeyaml>
+
+    <version.wildfly.swarm.checkstyle>3</version.wildfly.swarm.checkstyle>
+    <version.checkstyle>7.4</version.checkstyle>
   </properties>
 
   <scm>
@@ -37,15 +40,6 @@
     <url>https://github.com/wildfly-swarm/wildfly-swarm-fraction-plugin</url>
     <tag>HEAD</tag>
   </scm>
-
-<!--
-  <repositories>
-    <repository>
-      <id>jboss-public</id>
-      <url>https://repository.jboss.org/nexus/content/groups/public</url>
-    </repository>
-  </repositories>
--->
 
   <build>
     <plugins>
@@ -63,6 +57,37 @@
             <id>help-goal</id>
             <goals>
               <goal>helpmojo</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>${version.checkstyle.plugin}</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>${version.checkstyle}</version>
+          </dependency>
+          <dependency>
+            <groupId>org.wildfly.swarm</groupId>
+            <artifactId>checkstyle-config</artifactId>
+            <version>${version.wildfly.swarm.checkstyle}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <configuration>
+              <configLocation>checkstyle/checkstyle.xml</configLocation>
+              <encoding>UTF-8</encoding>
+              <consoleOutput>true</consoleOutput>
+            </configuration>
+            <goals>
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>

@@ -2,7 +2,6 @@ package org.wildfly.swarm.plugin.process;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -39,6 +38,16 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  */
 public class ModuleGenerator implements Function<FractionMetadata, FractionMetadata> {
 
+    private static final String RUNTIME = "runtime";
+
+    private static final String MAIN = "main";
+
+    private static final String DEPLOYMENT = "deployment";
+
+    private static final String MODULE_XML = "module.xml";
+
+    private static final String WELD_VERSION = "3";
+
     private final Log log;
 
     private final MavenProject project;
@@ -61,7 +70,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
                         .collect(Collectors.toList());
                 generate(meta.getBaseModulePath(), dependencies);
             } catch (IOException e) {
-                this.log.error( e.getMessage(), e );
+                this.log.error(e.getMessage(), e);
             }
         }
         return meta;
@@ -73,10 +82,10 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         Path outputDir = Paths.get(this.project.getBuild().getOutputDirectory(), "modules");
 
-        Path runtimeModuleXml = outputDir.resolve(root).resolve(Paths.get("runtime", "module.xml"));
-        Path apiModuleXml = outputDir.resolve(root).resolve(Paths.get("api", "module.xml"));
-        Path mainModuleXml = outputDir.resolve(root).resolve(Paths.get("main", "module.xml"));
-        Path deploymentModuleXml = outputDir.resolve(root).resolve(Paths.get("deployment", "module.xml"));
+        Path runtimeModuleXml = outputDir.resolve(root).resolve(Paths.get(RUNTIME, MODULE_XML));
+        Path apiModuleXml = outputDir.resolve(root).resolve(Paths.get("api", MODULE_XML));
+        Path mainModuleXml = outputDir.resolve(root).resolve(Paths.get(MAIN, MODULE_XML));
+        Path deploymentModuleXml = outputDir.resolve(root).resolve(Paths.get(DEPLOYMENT, MODULE_XML));
 
         Set<String> apiPaths = determineApiPaths();
         Set<String> runtimePaths = determineRuntimePaths();
@@ -86,7 +95,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
         ModuleDescriptor runtimeModule = Descriptors.create(ModuleDescriptor.class);
         runtimeModule
                 .name(moduleName)
-                .slot("runtime");
+                .slot(RUNTIME);
 
         ArtifactType<ResourcesType<ModuleDescriptor>> runtimeArtifact = runtimeModule.getOrCreateResources().createArtifact();
         runtimeArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
@@ -103,12 +112,12 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
         }
 
         ModuleDependencyType<DependenciesType<ModuleDescriptor>> mainDep = runtimeModule.getOrCreateDependencies()
-                .createModule().name(moduleName).slot("main").export(true);
+                .createModule().name(moduleName).slot(MAIN).export(true);
 
         runtimeModule.getOrCreateDependencies()
                 .createModule().name("org.wildfly.swarm.bootstrap").optional(true).up()
-                .createModule().name("org.wildfly.swarm.container").slot("runtime").up()
-                .createModule().name("org.wildfly.swarm.spi").slot("runtime").up();
+                .createModule().name("org.wildfly.swarm.container").slot(RUNTIME).up()
+                .createModule().name("org.wildfly.swarm.spi").slot(RUNTIME).up();
 
 
         runtimeModule.getOrCreateDependencies()
@@ -117,15 +126,15 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         runtimeModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.api").slot("3");
+                .name("org.jboss.weld.api").slot(WELD_VERSION);
 
         runtimeModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.spi").slot("3");
+                .name("org.jboss.weld.spi").slot(WELD_VERSION);
 
         runtimeModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.core").slot("3");
+                .name("org.jboss.weld.core").slot(WELD_VERSION);
 
         addDependencies(runtimeModule, dependencies);
 
@@ -168,22 +177,22 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         apiModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.api").slot("3");
+                .name("org.jboss.weld.api").slot(WELD_VERSION);
 
         apiModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.spi").slot("3");
+                .name("org.jboss.weld.spi").slot(WELD_VERSION);
 
         apiModule.getOrCreateDependencies()
                 .createModule()
-                .name("org.jboss.weld.core").slot("3");
+                .name("org.jboss.weld.core").slot(WELD_VERSION);
 
         addDependencies(apiModule, dependencies);
 
         // -- main
 
         ModuleDescriptor mainModule = Descriptors.create(ModuleDescriptor.class);
-        mainModule.name(moduleName).slot("main");
+        mainModule.name(moduleName).slot(MAIN);
 
         SystemDependencyType<DependenciesType<ModuleDescriptor>> system = mainModule.getOrCreateDependencies().createSystem();
 
@@ -221,7 +230,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
             deploymentModule = Descriptors.create(ModuleDescriptor.class);
             deploymentModule
                     .name(moduleName)
-                    .slot("deployment");
+                    .slot(DEPLOYMENT);
 
             ArtifactType<ResourcesType<ModuleDescriptor>> deploymentArtifact = deploymentModule.getOrCreateResources().createArtifact();
             deploymentArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
@@ -285,7 +294,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
                 if (colonLoc < 0) {
                     depName = dependency;
-                    depSlot = "main";
+                    depSlot = MAIN;
                 } else {
                     depName = dependency.substring(0, colonLoc);
                     depSlot = dependency.substring(colonLoc + 1);
@@ -321,15 +330,15 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
     }
 
     public Set<String> determineApiPaths() throws IOException {
-        return determinePaths((file) -> (!(file.contains("runtime") || file.contains("deployment"))));
+        return determinePaths((file) -> (!(file.contains(RUNTIME) || file.contains(DEPLOYMENT))));
     }
 
     public Set<String> determineRuntimePaths() throws IOException {
-        return determinePaths((file) -> file.contains("runtime"));
+        return determinePaths((file) -> file.contains(RUNTIME));
     }
 
     public Set<String> determineDeploymentPaths() throws IOException {
-        return determinePaths((file) -> file.contains("deployment"));
+        return determinePaths((file) -> file.contains(DEPLOYMENT));
     }
 
     public Set<String> determinePaths(Predicate<String> pred) throws IOException {
@@ -362,12 +371,12 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         int numParts = path.getNameCount();
 
-        for ( int i = 0 ; i < numParts ; ++i ) {
-            parts.add( path.getName(i).toString());
+        for (int i = 0; i < numParts; ++i) {
+            parts.add(path.getName(i).toString());
         }
 
 
-        return String.join( "/", parts);
+        return String.join("/", parts);
 
     }
 

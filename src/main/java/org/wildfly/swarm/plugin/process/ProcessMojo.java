@@ -54,12 +54,11 @@ public class ProcessMojo extends AbstractMojo {
             return;
         }
 
-
         new ModuleGenerator(getLog(), this.project).apply(meta);
         new CDIMarker(getLog(), this.project).apply(meta);
         new ModuleFiller(getLog(), this.repositorySystemSession, this.resolver, this.project).apply(meta);
-        new FractionManifestGenerator( getLog(), this.project ).apply( meta );
-        new Jandexer( getLog(), new File( this.project.getBuild().getOutputDirectory() ) ).apply( meta );
+        new FractionManifestGenerator(getLog(), this.project).apply(meta);
+        new Jandexer(getLog(), new File(this.project.getBuild().getOutputDirectory())).apply(meta);
     }
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)

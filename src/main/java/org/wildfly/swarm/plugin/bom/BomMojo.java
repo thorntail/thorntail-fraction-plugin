@@ -46,32 +46,32 @@ public class BomMojo extends AbstractFractionsMojo {
 
         Collection<FractionMetadata> fractions = null;
 
-        if ( this.stabilityIndex != null ) {
+        if (this.stabilityIndex != null) {
             this.stabilityIndex = this.stabilityIndex.trim();
-            if ( this.stabilityIndex.equals( "*" ) ) {
+            if (this.stabilityIndex.equals("*")) {
                 fractions = allFractions;
-            } else if ( this.stabilityIndex.endsWith("+") ) {
-                int level = Integer.parseInt( this.stabilityIndex.substring(0, this.stabilityIndex.length()-1));
+            } else if (this.stabilityIndex.endsWith("+")) {
+                int level = Integer.parseInt(this.stabilityIndex.substring(0, this.stabilityIndex.length() - 1));
                 fractions = allFractions
                         .stream()
-                        .filter( (e)->e.getStabilityIndex().ordinal() >= level )
+                        .filter((e) -> e.getStabilityIndex().ordinal() >= level)
                         .collect(Collectors.toSet());
             } else {
-                int level = Integer.parseInt( this.stabilityIndex );
+                int level = Integer.parseInt(this.stabilityIndex);
                 fractions = allFractions
                         .stream()
-                        .filter( (e)->e.getStabilityIndex().ordinal() == level )
+                        .filter((e) -> e.getStabilityIndex().ordinal() == level)
                         .collect(Collectors.toSet());
             }
         }
 
         List<DependencyMetadata> bomItems = new ArrayList<>();
-        bomItems.addAll( fractions );
-        bomItems.addAll( FractionRegistry.INSTANCE.bomInclusions() );
+        bomItems.addAll(fractions);
+        bomItems.addAll(FractionRegistry.INSTANCE.bomInclusions());
 
         final Path bomPath = Paths.get(this.project.getBuild().getOutputDirectory(), "bom.pom");
         try {
-            Files.createDirectories( bomPath.getParent() );
+            Files.createDirectories(bomPath.getParent());
             Files.write(bomPath,
                         BomBuilder.generateBOM(this.project, readTemplate(), bomItems).getBytes());
         } catch (IOException e) {
@@ -84,7 +84,7 @@ public class BomMojo extends AbstractFractionsMojo {
             getLog().info(String.format("%20s:%s", each.getGroupId(), each.getArtifactId()));
         }
 
-        project.setFile( bomPath.toFile() );
+        project.setFile(bomPath.toFile());
     }
 
     protected String readTemplate() throws MojoFailureException {

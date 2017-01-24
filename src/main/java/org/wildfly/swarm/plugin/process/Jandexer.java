@@ -2,7 +2,6 @@ package org.wildfly.swarm.plugin.process;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collections;
@@ -24,7 +23,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  *
  * @author Heiko Braun
  */
-public class Jandexer implements Function<FractionMetadata,FractionMetadata> {
+public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
 
     public static final String INDEX_NAME = "jandex.idx";
 
@@ -34,7 +33,7 @@ public class Jandexer implements Function<FractionMetadata,FractionMetadata> {
     }
 
     public FractionMetadata apply(FractionMetadata meta) {
-        if ( ! meta.hasJavaCode() ) {
+        if (!meta.hasJavaCode()) {
             return meta;
         }
 
@@ -71,10 +70,10 @@ public class Jandexer implements Function<FractionMetadata,FractionMetadata> {
 
         for (final String file : files) {
             if (file.endsWith(".class")) {
-                try (FileInputStream fis = new FileInputStream(new File(dir, file)) ) {
+                try (FileInputStream fis = new FileInputStream(new File(dir, file))) {
                     final ClassInfo info = indexer.index(fis);
                 } catch (IOException e) {
-                    this.log.error( e.getMessage() );
+                    this.log.error(e.getMessage());
                 }
             }
         }

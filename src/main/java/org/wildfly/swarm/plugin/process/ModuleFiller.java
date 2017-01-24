@@ -76,7 +76,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  * @author Ken Finnigan
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-public class ModuleFiller implements Function<FractionMetadata,FractionMetadata> {
+public class ModuleFiller implements Function<FractionMetadata, FractionMetadata> {
 
     private final Log log;
 
@@ -132,7 +132,7 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
             }
             this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
         } catch (IOException e) {
-            this.log.error( e.getMessage(), e );
+            this.log.error(e.getMessage(), e);
         }
 
         return meta;
@@ -230,7 +230,7 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
     protected void addResources(ZipFile zip, String moduleName, ZipEntry moduleXml) {
 
         String moduleXmlPath = moduleXml.getName();
-        String rootName = moduleXmlPath.substring(0, moduleXmlPath.length() - "module.xml".length());
+        String rootName = moduleXmlPath.substring(0, moduleXmlPath.length() - MODULE_XML.length());
 
         Enumeration<? extends ZipEntry> entries = zip.entries();
 
@@ -242,7 +242,7 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
                     String resourceRelative = entry.getName().substring(rootName.length());
                     resourceRelative.replace('/', File.separatorChar);
                     Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
-                    Path modulesDir = classesDir.resolve("modules");
+                    Path modulesDir = classesDir.resolve(MODULES);
 
                     String[] parts = moduleName.split(":");
                     String[] moduleParts = parts[0].split("\\.");
@@ -271,7 +271,7 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
     protected void addFillModule(Map<String, String> versions, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
 
         Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
-        Path modulesDir = classesDir.resolve("modules");
+        Path modulesDir = classesDir.resolve(MODULES);
 
         String[] parts = moduleName.split(":");
         String[] moduleParts = parts[0].split("\\.");
@@ -284,7 +284,7 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
 
         moduleDir = moduleDir.resolve(parts[1]);
 
-        Path moduleXml = moduleDir.resolve("module.xml");
+        Path moduleXml = moduleDir.resolve(MODULE_XML);
 
         processFillModule(versions, moduleXml, in);
 
@@ -399,12 +399,12 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
     protected void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
         List<Resource> resources = this.project.getBuild().getResources();
         for (Resource each : resources) {
-            final Path modulesDir = Paths.get(each.getDirectory()).resolve("modules");
+            final Path modulesDir = Paths.get(each.getDirectory()).resolve(MODULES);
             if (Files.exists(modulesDir)) {
                 Files.walkFileTree(modulesDir, new SimpleFileVisitor<Path>() {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        if (file.getFileName().toString().equals("module.xml")) {
+                        if (file.getFileName().toString().equals(MODULE_XML)) {
                             analyzeModuleXml(modulesDir, file, requiredModules, availableModules);
                         }
                         return FileVisitResult.CONTINUE;
@@ -413,13 +413,13 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
             }
         }
 
-        Path targetModulesDir = Paths.get( this.project.getBuild().getOutputDirectory() ).resolve( "modules" );
+        Path targetModulesDir = Paths.get(this.project.getBuild().getOutputDirectory()).resolve(MODULES);
 
         if (Files.exists(targetModulesDir)) {
             Files.walkFileTree(targetModulesDir, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().equals("module.xml")) {
+                    if (file.getFileName().toString().equals(MODULE_XML)) {
                         analyzeModuleXml(targetModulesDir, file, requiredModules, availableModules);
                     }
                     return FileVisitResult.CONTINUE;
@@ -510,11 +510,15 @@ public class ModuleFiller implements Function<FractionMetadata,FractionMetadata>
         }
     }
 
-    private final static String MODULES_PREFIX = "modules/";
+    private static final String MODULES = "modules";
 
-    private final static String MODULES_SYSTEM_PREFIX = MODULES_PREFIX + "system/";
+    private static final String MODULES_PREFIX = MODULES + "/";
 
-    private final static String MODULES_SUFFIX = "/module.xml";
+    private static final String MODULES_SYSTEM_PREFIX = MODULES_PREFIX + "system/";
+
+    private static final String MODULE_XML = "module.xml";
+
+    private static final String MODULES_SUFFIX = "/" + MODULE_XML;
 
     private static Pattern ARTIFACT_PATTERN = Pattern.compile("<artifact groupId=\"([^\"]+)\" artifactId=\"([^\"]+)\" version=\"([^\"]+)\"( classifier=\"([^\"]+)\")?.*");
 

@@ -23,6 +23,9 @@ import org.wildfly.swarm.plugin.DependencyMetadata;
 
 public class BomBuilder {
 
+    private BomBuilder() {
+    }
+
     public static final String SWARM_GROUP = "org.wildfly.swarm";
 
     public static String generateBOM(final MavenProject rootProject,
@@ -30,10 +33,10 @@ public class BomBuilder {
                                      final Collection<DependencyMetadata> bomItems) {
 
         return template.replace("#{dependencies}",
-                String.join("\n",
-                        bomItems.stream()
-                                .map(BomBuilder::pomGav)
-                                .collect(Collectors.toList())))
+                                String.join("\n",
+                                            bomItems.stream()
+                                                    .map(BomBuilder::pomGav)
+                                                    .collect(Collectors.toList())))
                 .replace("#{bom-artifactId}", rootProject.getArtifactId())
                 .replace("#{bom-name}", rootProject.getName())
                 .replace("#{bom-description}", rootProject.getDescription());
@@ -41,14 +44,14 @@ public class BomBuilder {
     }
 
     private static String pomGav(DependencyMetadata project) {
-        return pomGav( project.getGroupId(), project.getArtifactId(), project.getVersion() );
+        return pomGav(project.getGroupId(), project.getArtifactId(), project.getVersion());
     }
 
     private static String pomGav(final String groupId, final String artifactId, final String version) {
-        return String.format(DEP_TEMPLATE, groupId, artifactId, version );
+        return String.format(DEP_TEMPLATE, groupId, artifactId, version);
     }
 
-    static final private String DEP_TEMPLATE = "      <dependency>\n        <groupId>%s</groupId>\n" +
+    private static final String DEP_TEMPLATE = "      <dependency>\n        <groupId>%s</groupId>\n" +
             "        <artifactId>%s</artifactId>\n        <version>%s</version>\n      </dependency>";
 }
 

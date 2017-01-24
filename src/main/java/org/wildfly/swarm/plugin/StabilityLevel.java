@@ -23,7 +23,7 @@ public enum StabilityLevel {
     public static StabilityLevel parse(String level) {
         level = level.toUpperCase().trim();
         try {
-            int levelInt = Integer.parseInt( level );
+            int levelInt = Integer.parseInt(level);
             return StabilityLevel.values()[levelInt];
         } catch (NumberFormatException e) {
             // oh well, try it as a word.

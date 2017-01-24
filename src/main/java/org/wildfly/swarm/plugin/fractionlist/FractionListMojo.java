@@ -18,7 +18,6 @@ package org.wildfly.swarm.plugin.fractionlist;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
 
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -31,7 +30,6 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
-import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 import org.wildfly.swarm.plugin.FractionMetadata;
 
@@ -47,7 +45,6 @@ import org.wildfly.swarm.plugin.FractionMetadata;
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
 public class FractionListMojo extends AbstractFractionsMojo {
-
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         Set<FractionMetadata> fractions = fractions();
@@ -123,7 +120,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.js");
 
         try (FileWriter writer = new FileWriter(outFile)) {
-            writer.write("swarmVersion='"+swarmVersion+"';");
+            writer.write("swarmVersion='" + swarmVersion + "';");
             writer.write("fractionList = ");
             writer.flush();
 
