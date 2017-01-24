@@ -113,9 +113,9 @@ public class FractionRegistry {
 
         if (!meta.isFraction()) {
             String includeInBOM = project.getProperties().getProperty(BOM_PROPERTY);
-            if ( includeInBOM != null ) {
-                DependencyMetadata dep = new DependencyMetadata( meta );
-                this.bomInclusions.add( dep );
+            if (includeInBOM != null) {
+                DependencyMetadata dep = new DependencyMetadata(meta);
+                this.bomInclusions.add(dep);
 
             }
 
@@ -180,7 +180,7 @@ public class FractionRegistry {
     }
 
     protected static Path findJavaFraction(MavenProject project) {
-        if ( project.getGroupId().equals( "org.wildfly.swarm" ) && project.getArtifactId().equals( "spi" ) ) {
+        if (project.getGroupId().equals("org.wildfly.swarm") && project.getArtifactId().equals("spi")) {
             return null;
         }
         Path src = Paths.get(project.getBuild().getSourceDirectory());

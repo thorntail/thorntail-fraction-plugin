@@ -11,10 +11,13 @@ import static org.wildfly.swarm.plugin.StabilityLevel.FRACTION_STABILITY_PROPERT
  */
 public class FractionDetector {
 
+    private FractionDetector() {
+    }
+
     public static boolean isFraction(MavenProject project) {
         boolean result = project.getProperties().getProperty(FRACTION_STABILITY_PROPERTY_NAME) != null
                 || project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME) != null
-                || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME ) != null;
+                || project.getProperties().getProperty(FRACTION_INTERNAL_PROPERTY_NAME) != null;
         return result;
     }
 }

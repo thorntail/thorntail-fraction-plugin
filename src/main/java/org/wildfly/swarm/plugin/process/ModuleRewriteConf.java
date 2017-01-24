@@ -41,7 +41,7 @@ public class ModuleRewriteConf {
         String descSlot = desc.getSlot();
 
         if (descSlot == null) {
-            descSlot = "main";
+            descSlot = MAIN;
         }
 
         ModuleRewriteRules rules = this.rules.get(descName + ":" + descSlot);
@@ -79,7 +79,7 @@ public class ModuleRewriteConf {
                     String[] chunks = line.substring(REPLACE.length()).trim().split(">");
 
                     String origName = null;
-                    String origSlot = "main";
+                    String origSlot = MAIN;
 
                     String[] origParts = chunks[0].trim().split(":");
                     origName = origParts[0];
@@ -88,7 +88,7 @@ public class ModuleRewriteConf {
                     }
 
                     String replaceName = null;
-                    String replaceSlot = "main";
+                    String replaceSlot = MAIN;
 
                     String[] replaceParts = chunks[1].trim().split(":");
                     replaceName = replaceParts[0];
@@ -99,7 +99,7 @@ public class ModuleRewriteConf {
                     current.replace(origName, origSlot, replaceName, replaceSlot);
                 } else if (line.startsWith(OPTIONAL)) {
                     String name = null;
-                    String slot = "main";
+                    String slot = MAIN;
 
                     String[] parts = line.substring(OPTIONAL.length()).trim().split(":");
                     name = parts[0];
@@ -110,7 +110,7 @@ public class ModuleRewriteConf {
                     current.makeOptional(name, slot);
                 } else if (line.startsWith(MODULE)) {
                     String name = null;
-                    String slot = "main";
+                    String slot = MAIN;
 
                     String[] parts = line.substring(MODULE.length()).trim().split(":");
                     name = parts[0];
@@ -146,7 +146,7 @@ public class ModuleRewriteConf {
 
                     current.export(name, slot);
                 } else {
-                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE +", " + EXPORT + " or " + OPTIONAL + " - " + line);
+                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
             }
         }
@@ -161,6 +161,8 @@ public class ModuleRewriteConf {
     private static final String OPTIONAL = "optional:";
 
     private static final String REPLACE = "replace:";
+
+    private static final String MAIN = "main";
 
     private Map<String, ModuleRewriteRules> rules = new HashMap<>();
 }

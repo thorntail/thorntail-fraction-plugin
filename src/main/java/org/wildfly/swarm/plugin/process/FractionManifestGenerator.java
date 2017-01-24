@@ -43,28 +43,28 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
 
-        Yaml yaml = new Yaml( options );
+        Yaml yaml = new Yaml(options);
 
-        Map<String,Object> data = new LinkedHashMap<String,Object>() {{
+        Map<String, Object> data = new LinkedHashMap<String, Object>() {{
             //noinspection unchecked
             put("name", meta.getName());
             put("description", meta.getDescription());
             put("groupId", meta.getGroupId());
             put("artifactId", meta.getArtifactId());
             put("version", meta.getVersion());
-            if ( meta.hasJavaCode() && meta.getModule() != null) {
+            if (meta.hasJavaCode() && meta.getModule() != null) {
                 put("module", meta.getModule());
             }
-            put("stability", new HashMap<String,Object>() {{
+            put("stability", new HashMap<String, Object>() {{
                 put("level", meta.getStabilityIndex().toString());
                 put("index", meta.getStabilityIndex().ordinal());
             }});
             put("internal", meta.isInternal());
             put("dependencies",
-                    meta.getDependencies()
-                            .stream()
-                            .map(DependencyMetadata::toString)
-                            .collect(Collectors.toList())
+                meta.getDependencies()
+                        .stream()
+                        .map(DependencyMetadata::toString)
+                        .collect(Collectors.toList())
             );
         }};
 

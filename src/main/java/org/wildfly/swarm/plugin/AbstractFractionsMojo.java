@@ -16,11 +16,8 @@
 package org.wildfly.swarm.plugin;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
@@ -44,8 +41,6 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
  */
 public abstract class AbstractFractionsMojo extends AbstractMojo {
 
-
-
     protected static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
 
     protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
@@ -53,7 +48,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     private static List<MavenProject> PROBABLY_FRACTIONS = null;
 
     public List<MavenProject> probablyFractionProjects() {
-        if ( PROBABLY_FRACTIONS == null ) {
+        if (PROBABLY_FRACTIONS == null) {
 
             PROBABLY_FRACTIONS = this.project.getDependencyManagement().getDependencies()
                     .stream()
@@ -66,7 +61,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
         return PROBABLY_FRACTIONS;
     }
 
-    public synchronized  Set<FractionMetadata> fractions() {
+    public synchronized Set<FractionMetadata> fractions() {
         return probablyFractionProjects()
                 .stream()
                 .map(FractionRegistry.INSTANCE::of)
@@ -97,7 +92,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected boolean isSwarmProject(Dependency dependency) {
-        return dependency.getGroupId().startsWith( "org.wildfly.swarm" );
+        return dependency.getGroupId().startsWith("org.wildfly.swarm");
     }
 
     protected boolean isNotArquillianArtifact(Dependency dependency) {

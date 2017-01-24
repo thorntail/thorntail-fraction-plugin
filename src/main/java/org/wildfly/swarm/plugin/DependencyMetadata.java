@@ -57,6 +57,6 @@ public class DependencyMetadata {
 
     @Override
     public String toString() {
-        return this.groupId + ":" + this.artifactId + ":" + this.packaging + ( this.classifier == null ? "" : ":" + this.classifier ) + ":" + this.version;
+        return this.groupId + ":" + this.artifactId + ":" + this.packaging + (this.classifier == null ? "" : ":" + this.classifier) + ":" + this.version;
     }
 }
