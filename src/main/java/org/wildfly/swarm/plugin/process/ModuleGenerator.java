@@ -76,7 +76,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
         return meta;
     }
 
-    public void generate(Path root, List<String> dependencies) throws IOException {
+    private void generate(Path root, List<String> dependencies) throws IOException {
 
         String moduleName = root.toString().replace(File.separatorChar, '.');
 
@@ -111,7 +111,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
             runtimeExcludeSet.createPath().name(path);
         }
 
-        ModuleDependencyType<DependenciesType<ModuleDescriptor>> mainDep = runtimeModule.getOrCreateDependencies()
+        runtimeModule.getOrCreateDependencies()
                 .createModule().name(moduleName).slot(MAIN).export(true);
 
         runtimeModule.getOrCreateDependencies()
@@ -256,7 +256,6 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
         }
 
-
         export(mainModule, mainModuleXml);
         export(apiModule, apiModuleXml);
         export(runtimeModule, runtimeModuleXml);
@@ -329,19 +328,19 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
         }
     }
 
-    public Set<String> determineApiPaths() throws IOException {
+    private Set<String> determineApiPaths() throws IOException {
         return determinePaths((file) -> (!(file.contains(RUNTIME) || file.contains(DEPLOYMENT))));
     }
 
-    public Set<String> determineRuntimePaths() throws IOException {
+    private Set<String> determineRuntimePaths() throws IOException {
         return determinePaths((file) -> file.contains(RUNTIME));
     }
 
-    public Set<String> determineDeploymentPaths() throws IOException {
+    private Set<String> determineDeploymentPaths() throws IOException {
         return determinePaths((file) -> file.contains(DEPLOYMENT));
     }
 
-    public Set<String> determinePaths(Predicate<String> pred) throws IOException {
+    private Set<String> determinePaths(Predicate<String> pred) throws IOException {
         Path dir = Paths.get(this.project.getBuild().getOutputDirectory());
 
         Set<String> paths = new HashSet<>();
@@ -365,8 +364,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
     }
 
-    public String javaSlashize(Path path) {
-
+    private String javaSlashize(Path path) {
         List<String> parts = new ArrayList<>();
 
         int numParts = path.getNameCount();
@@ -375,9 +373,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
             parts.add(path.getName(i).toString());
         }
 
-
         return String.join("/", parts);
-
     }
 
 }

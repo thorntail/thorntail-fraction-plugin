@@ -9,7 +9,6 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -17,7 +16,6 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 import org.wildfly.swarm.plugin.FractionMetadata;
-import org.wildfly.swarm.plugin.StabilityLevel;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -36,10 +34,6 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
     }
 
     public FractionMetadata apply(FractionMetadata meta) {
-        Properties props = new Properties();
-
-        StabilityLevel stabilityLevel = StabilityLevel.of(this.project);
-
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
 

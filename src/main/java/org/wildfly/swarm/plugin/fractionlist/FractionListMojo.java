@@ -54,7 +54,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         generateJavascript(fractions);
     }
 
-    protected void generateTxt(Set<FractionMetadata> fractions) {
+    private void generateTxt(Set<FractionMetadata> fractions) {
 
         File outFile = new File(this.project.getBuild().getOutputDirectory(), "fraction-list.txt");
 
@@ -85,7 +85,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         this.project.addAttachedArtifact(artifact);
     }
 
-    protected void generateJSON(Set<FractionMetadata> fractions) {
+    private void generateJSON(Set<FractionMetadata> fractions) {
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
@@ -112,7 +112,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         this.project.addAttachedArtifact(artifact);
     }
 
-    protected void generateJavascript(Set<FractionMetadata> fractions) {
+    private void generateJavascript(Set<FractionMetadata> fractions) {
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);

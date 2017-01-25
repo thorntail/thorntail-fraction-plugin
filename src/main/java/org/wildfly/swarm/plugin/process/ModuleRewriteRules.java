@@ -28,30 +28,27 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
  */
 public class ModuleRewriteRules {
 
-
-    public ModuleRewriteRules(String name, String slot) {
-        this.name = name;
-        this.slot = slot;
+    public ModuleRewriteRules() {
     }
 
-    public void makeOptional(String name, String slot) {
+    void makeOptional(String name, String slot) {
         this.rules.add(new Optional(name, slot));
     }
 
-    public void include(String name, String slot) {
+    void include(String name, String slot) {
         this.rules.add(new Include(name, slot));
     }
 
-    public void export(String name, String slot) {
+    void export(String name, String slot) {
         this.rules.add(new Export(name, slot));
     }
 
-    public void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
+    void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
         System.err.println("adding replace: " + origName + ":" + origSlot + " with " + replaceName + ":" + replaceSlot);
         this.rules.add(new Replace(origName, origSlot, replaceName, replaceSlot));
     }
 
-    public ModuleDescriptor rewrite(ModuleDescriptor desc) {
+    ModuleDescriptor rewrite(ModuleDescriptor desc) {
         for (Rule rule : this.rules) {
             rule.rewrite(desc);
         }
@@ -59,18 +56,14 @@ public class ModuleRewriteRules {
         return desc;
     }
 
-    private final String name;
-
-    private final String slot;
-
     private List<Rule> rules = new ArrayList<>();
 
-    public abstract static class Rule {
+    abstract static class Rule {
         public abstract void rewrite(ModuleDescriptor desc);
     }
 
-    public static class Include extends Rule {
-        public Include(String name, String slot) {
+    private static class Include extends Rule {
+        Include(String name, String slot) {
             this.name = name;
             this.slot = slot;
         }
@@ -92,8 +85,8 @@ public class ModuleRewriteRules {
         private final String slot;
     }
 
-    public static class Export extends Rule {
-        public Export(String name, String slot) {
+    private static class Export extends Rule {
+        Export(String name, String slot) {
             this.name = name;
             this.slot = slot;
         }
@@ -113,8 +106,8 @@ public class ModuleRewriteRules {
         private final String slot;
     }
 
-    public static class Optional extends Rule {
-        public Optional(String name, String slot) {
+    private static class Optional extends Rule {
+        Optional(String name, String slot) {
             this.name = name;
             this.slot = slot;
         }
@@ -141,7 +134,7 @@ public class ModuleRewriteRules {
         private final String slot;
     }
 
-    public static class Replace extends Rule {
+    private static class Replace extends Rule {
         private final String origName;
 
         private final String origSlot;
@@ -150,13 +143,12 @@ public class ModuleRewriteRules {
 
         private final String replaceSlot;
 
-        public Replace(String origName, String origSlot, String replaceName, String replaceSlot) {
+        Replace(String origName, String origSlot, String replaceName, String replaceSlot) {
             this.origName = origName;
             this.origSlot = origSlot;
 
             this.replaceName = replaceName;
             this.replaceSlot = replaceSlot;
-
         }
 
         @Override
@@ -174,7 +166,6 @@ public class ModuleRewriteRules {
                     each.name(this.replaceName).slot(this.replaceSlot);
                 }
             }
-
         }
     }
 }

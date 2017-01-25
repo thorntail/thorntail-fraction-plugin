@@ -14,9 +14,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  */
 public class CDIMarker implements Function<FractionMetadata, FractionMetadata> {
 
-    public static final String CDI_PROPERTY = "swarm.fraction.cdi";
-
-    public static final String CDI_MARKER = "META-INF/beans.xml";
+    private static final String CDI_MARKER = "META-INF/beans.xml";
 
     public CDIMarker(Log log, MavenProject project) {
         this.log = log;

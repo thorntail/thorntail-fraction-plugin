@@ -56,7 +56,6 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.resolution.ArtifactRequest;
-import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
@@ -97,7 +96,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
             Set<String> requiredModules = new HashSet<>();
             Set<String> availableModules = new HashSet<>();
             walkProjectModules(requiredModules, availableModules);
-            walkDependencyModules(requiredModules, availableModules);
+            walkDependencyModules(availableModules);
 
             Map<String, File> potentialModules = new HashMap<>();
             indexPotentialModules(potentialModules);
@@ -121,13 +120,10 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                         File file = artifactResult.getArtifact().getFile();
                         long artifactSize = Files.size(file.toPath());
                         size += artifactSize;
-                        //getLog().info( "Artifact: " + each + ":  " + fmt.format( artifactSize / ( 1024.0*1024.0) ) + "mb");
                         this.log.info(String.format("%100s %10s mb", each, fmt.format(artifactSize / (1024.0 * 1024.0))));
                     }
-                } catch (ArtifactResolutionException e) {
-                    //e.printStackTrace();
-                } catch (IOException e) {
-                    //e.printStackTrace();
+                } catch (Exception e) {
+                    this.log.error(e.getMessage(), e);
                 }
             }
             this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
@@ -138,16 +134,13 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         return meta;
     }
 
-    protected void loadRewriteRules() throws IOException {
+    private void loadRewriteRules() throws IOException {
         Path rewriteConf = Paths.get(this.project.getBasedir().getAbsolutePath(), "module-rewrite.conf");
         this.rules = new ModuleRewriteConf(rewriteConf);
 
     }
 
-    protected void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException {
-
-        int counter = 1;
-
+    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         while (true) {
             Set<String> fillModules = new HashSet<>();
             fillModules.addAll(requiredModules);
@@ -170,13 +163,13 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         for (File each : relevantFiles) {
             addFillModules(fillModules, each, requiredModules, availableModules);
         }
     }
 
-    protected void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Map<String, ZipEntry> moduleXmls = new HashMap<>();
         ZipEntry featurePackXml = null;
 
@@ -227,7 +220,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void addResources(ZipFile zip, String moduleName, ZipEntry moduleXml) {
+    private void addResources(ZipFile zip, String moduleName, ZipEntry moduleXml) {
 
         String moduleXmlPath = moduleXml.getName();
         String rootName = moduleXmlPath.substring(0, moduleXmlPath.length() - MODULE_XML.length());
@@ -240,7 +233,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                 if (entry.getName().startsWith(rootName) && !entry.getName().equals(moduleXmlPath)) {
 
                     String resourceRelative = entry.getName().substring(rootName.length());
-                    resourceRelative.replace('/', File.separatorChar);
+                    resourceRelative = resourceRelative.replace('/', File.separatorChar);
                     Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
                     Path modulesDir = classesDir.resolve(MODULES);
 
@@ -268,7 +261,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void addFillModule(Map<String, String> versions, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModule(Map<String, String> versions, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
 
         Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
         Path modulesDir = classesDir.resolve(MODULES);
@@ -291,7 +284,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         analyzeModuleXml(modulesDir, moduleXml, requiredModules, availableModules);
     }
 
-    protected void processFillModule(Map<String, String> versions, Path moduleXml, InputStream in) throws IOException {
+    private void processFillModule(Map<String, String> versions, Path moduleXml, InputStream in) throws IOException {
         Files.createDirectories(moduleXml.getParent());
 
         NodeImporter importer = new XmlDomNodeImporterImpl();
@@ -330,7 +323,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected Map<String, String> processFeaturePackXml(InputStream in) throws IOException {
+    private Map<String, String> processFeaturePackXml(InputStream in) throws IOException {
         Map<String, String> versions = new HashMap<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
             String line = null;
@@ -357,7 +350,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         return versions;
     }
 
-    protected void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
+    private void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
         Set<Artifact> artifacts = this.project.getArtifacts();
 
         for (Artifact each : artifacts) {
@@ -367,7 +360,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void indexPotentialModules(File file, Map<String, File> potentialModules) throws IOException {
+    private void indexPotentialModules(File file, Map<String, File> potentialModules) throws IOException {
         try (ZipFile zip = new ZipFile(file)) {
             Enumeration<? extends ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
@@ -396,7 +389,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
+    private void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
         List<Resource> resources = this.project.getBuild().getResources();
         for (Resource each : resources) {
             final Path modulesDir = Paths.get(each.getDirectory()).resolve(MODULES);
@@ -428,7 +421,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void walkDependencyModules(Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void walkDependencyModules(Set<String> availableModules) throws IOException {
         Set<Artifact> artifacts = this.project.getArtifacts();
 
         for (Artifact each : artifacts) {
@@ -436,7 +429,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
+    private void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
         if (artifact.getType().equals("jar")) {
             try (JarFile jar = new JarFile(artifact.getFile())) {
                 Enumeration<JarEntry> entries = jar.entries();
@@ -460,7 +453,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    protected void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         Path modulePath = root.relativize(moduleXml).getParent();
 
 
@@ -476,37 +469,41 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
         String rootName = node.getName();
 
-        if (rootName.equals("module")) {
-            ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
+        switch (rootName) {
+            case "module": {
+                ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
 
-            desc = this.rules.rewrite(desc);
+                desc = this.rules.rewrite(desc);
 
-            DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
-            List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
-            for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDependency : moduleDependencies) {
-                if (moduleDependency.isOptional()) {
-                    continue;
+                DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
+                List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> moduleDependencies = dependencies.getAllModule();
+                for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> moduleDependency : moduleDependencies) {
+                    if (moduleDependency.isOptional()) {
+                        continue;
+                    }
+                    String name = moduleDependency.getName();
+                    String slot = moduleDependency.getSlot();
+                    if (slot == null) {
+                        slot = "main";
+                    }
+
+                    requiredModules.add(name + ":" + slot);
+                    this.log.info(" - requires: " + name + ":" + slot);
                 }
-                String name = moduleDependency.getName();
-                String slot = moduleDependency.getSlot();
+                break;
+            }
+            case "module-alias": {
+                ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
+                String name = desc.getTargetName();
+                String slot = desc.getTargetSlot();
                 if (slot == null) {
                     slot = "main";
                 }
-
                 requiredModules.add(name + ":" + slot);
                 this.log.info(" - requires: " + name + ":" + slot);
+                break;
             }
-        } else if (rootName.equals("module-alias")) {
-            ModuleAliasDescriptor desc = new ModuleAliasDescriptorImpl(null, node);
-            String name = desc.getTargetName();
-            String slot = desc.getTargetSlot();
-            if (slot == null) {
-                slot = "main";
-            }
-            requiredModules.add(name + ":" + slot);
-            this.log.info(" - requires: " + name + ":" + slot);
-        } else {
-
+            default:
         }
     }
 

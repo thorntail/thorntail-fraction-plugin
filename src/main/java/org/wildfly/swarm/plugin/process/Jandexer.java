@@ -25,7 +25,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  */
 public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
 
-    public static final String INDEX_NAME = "jandex.idx";
+    private static final String INDEX_NAME = "jandex.idx";
 
     public Jandexer(Log log, File classesDir) {
         this.log = log;
@@ -79,8 +79,7 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
         }
 
         final File idx = new File(dir, "META-INF/" + INDEX_NAME);
-        idx.getParentFile()
-                .mkdirs();
+        idx.getParentFile().mkdirs();
 
         FileOutputStream indexOut = null;
         try {
