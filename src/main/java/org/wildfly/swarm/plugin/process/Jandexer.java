@@ -25,7 +25,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  */
 public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
 
-    private static final String INDEX_NAME = "jandex.idx";
+    public static final String INDEX_NAME = "jandex.idx";
 
     public Jandexer(Log log, File classesDir) {
         this.log = log;
