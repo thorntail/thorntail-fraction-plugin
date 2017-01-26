@@ -59,6 +59,7 @@ public class ProcessMojo extends AbstractMojo {
         new ModuleFiller(getLog(), this.repositorySystemSession, this.resolver, this.project).apply(meta);
         new FractionManifestGenerator(getLog(), this.project).apply(meta);
         new Jandexer(getLog(), new File(this.project.getBuild().getOutputDirectory())).apply(meta);
+        new ConfigurableDocumentationGenerator(getLog(), this.project, new File(this.project.getBuild().getOutputDirectory())).apply(meta);
     }
 
     @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
