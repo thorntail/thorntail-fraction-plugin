@@ -70,16 +70,6 @@ public abstract class DocumentationGatherer {
         return false;
     }
 
-    protected static String getConfigurableName(FieldInfo field) {
-        for (AnnotationInstance anno : field.annotations()) {
-            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
-                return anno.value().asString();
-            }
-        }
-
-        return null;
-    }
-
     protected static boolean isMarkedAsDocumented(FieldInfo field) {
         for (AnnotationInstance anno : field.annotations()) {
             if (anno.name().equals(ConfigurableDocumentationGenerator.ATTRIBUTE_DOCUMENTATION_ANNOTATION)) {
@@ -119,7 +109,32 @@ public abstract class DocumentationGatherer {
         return "";
     }
 
-    protected static String simpleNameFor(ClassInfo fraction) {
+    protected static String nameFor(FieldInfo field) {
+        Collection<AnnotationInstance> annos = field.annotations();
+
+        for (AnnotationInstance anno : annos) {
+            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
+                if (anno.value() != null) {
+                    return anno.value().asString();
+                }
+            }
+        }
+
+        String prefix = nameFor(field.declaringClass());
+
+
+        for (AnnotationInstance anno : annos) {
+            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
+                if (!anno.value("simpleName").asString().isEmpty()) {
+                    return prefix + "." + anno.value("simpleName").asString();
+                }
+            }
+        }
+
+        return prefix + "." + field.name();
+    }
+
+    protected static String nameFor(ClassInfo fraction) {
         Collection<AnnotationInstance> annos = fraction.classAnnotations();
 
         for (AnnotationInstance anno : annos) {
@@ -131,7 +146,7 @@ public abstract class DocumentationGatherer {
         }
 
         String name = fraction.name().local();
-        return name.replace("Fraction", "").toLowerCase();
+        return "swarm." + name.replace("Fraction", "").toLowerCase();
     }
 
     public abstract void gather();

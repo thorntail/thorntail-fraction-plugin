@@ -24,6 +24,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.AnnotationTarget;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.DotName;
@@ -196,9 +197,12 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
         Collection<AnnotationInstance> annos = ownIndex.getAnnotations(CONFIGURABLE_ANNOTATION);
 
         for (AnnotationInstance anno : annos) {
-            ClassInfo declaringClass = anno.target().asField().declaringClass();
-            if (!fractions.contains(declaringClass)) {
-                new AnnotationDocumentationGatherer(this.log, this.documentationRegistry, totalIndex, anno).gather();
+            AnnotationTarget annoTarget = anno.target();
+            if (annoTarget.kind().equals(AnnotationTarget.Kind.FIELD)) {
+                ClassInfo declaringClass = annoTarget.asField().declaringClass();
+                if (!fractions.contains(declaringClass)) {
+                    new AnnotationDocumentationGatherer(this.log, this.documentationRegistry, totalIndex, anno).gather();
+                }
             }
         }
     }

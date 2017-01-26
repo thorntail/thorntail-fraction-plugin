@@ -1,5 +1,6 @@
 package org.wildfly.swarm.plugin.process.configurable;
 
+import java.lang.reflect.Modifier;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,7 +27,7 @@ public class ResourceDocumentationGatherer extends DocumentationGatherer {
     }};
 
     public ResourceDocumentationGatherer(Log log, DocumentationRegistry registry, IndexView index, ClassInfo resourceClassInfo) {
-        this(log, "swarm." + simpleNameFor(resourceClassInfo), registry, index, resourceClassInfo);
+        this(log, nameFor(resourceClassInfo), registry, index, resourceClassInfo);
         this.isRootFraction = true;
     }
 
@@ -39,24 +40,27 @@ public class ResourceDocumentationGatherer extends DocumentationGatherer {
 
     @Override
     public void gather() {
-        process(this.resourceClassInfo);
+        process(this.resourceClassInfo, this.isRootFraction);
     }
 
-    protected void process(ClassInfo current) {
+    protected void process(ClassInfo current, boolean isRootFraction) {
         List<FieldInfo> fields = current.fields();
 
         for (FieldInfo field : fields) {
-            process(field);
+            process(field, isRootFraction);
         }
 
         ClassInfo superClass = getClassByName(current.superName());//index.getClassByName(current.superName());
 
         if (superClass != null) {
-            process(superClass);
+            process(superClass, false);
         }
     }
 
-    protected void process(FieldInfo field) {
+    protected void process(FieldInfo field, boolean isRootFraction) {
+        if (Modifier.isStatic(field.flags())) {
+            return;
+        }
         if (isSubresources(field)) {
             ClassInfo subresourceInfo = getClassByName(field.type().name());
             new SubresourcesDocumentationGatherer(getLog(), this.registry, this.index, this.name, subresourceInfo).gather();
@@ -64,11 +68,11 @@ public class ResourceDocumentationGatherer extends DocumentationGatherer {
             if (IGNORABLE_FIELDS.contains(field.name())) {
                 return;
             }
-            if (this.isRootFraction) {
+            if (isRootFraction) {
                 String name = this.name + "." + dashize(field.name());
                 String docs = "(not yet documented)";
                 if (isMarkedAsConfigurable(field)) {
-                    name = getConfigurableName(field);
+                    name = nameFor(field);
                 }
                 if (isMarkedAsDocumented(field)) {
                     docs = getDocumentation(field);
