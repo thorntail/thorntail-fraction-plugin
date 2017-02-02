@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.function.Function;
 
 import org.apache.maven.project.MavenProject;
@@ -37,7 +38,7 @@ public class ReadmeGrabber implements Function<FractionMetadata, FractionMetadat
 
         try {
             Files.createDirectories(destination.getParent());
-            Files.copy(readme.toPath(), destination);
+            Files.copy(readme.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             e.printStackTrace();
         }
