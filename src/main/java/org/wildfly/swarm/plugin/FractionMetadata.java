@@ -18,8 +18,10 @@ package org.wildfly.swarm.plugin;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -29,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * @author Bob McWhirter
+ * @author Ken Finnigan
  */
 public class FractionMetadata extends DependencyMetadata {
 
@@ -205,6 +208,15 @@ public class FractionMetadata extends DependencyMetadata {
                 .collect(Collectors.toSet());
     }
 
+    public void addDetectorClass(Path relativePath, Path detectorClassPath) {
+        this.detectorClasses.put(relativePath, detectorClassPath);
+    }
+
+    @JsonIgnore
+    public Map<Path, Path> getDetectorClasses() {
+        return this.detectorClasses;
+    }
+
     public String toString() {
         return getGroupId() + ":" + getArtifactId() + ":" + this.getVersion();
     }
@@ -234,6 +246,8 @@ public class FractionMetadata extends DependencyMetadata {
     private boolean hasJavaCode;
 
     private final Set<DependencyMetadata> dependencies = new HashSet<>();
+
+    private final Map<Path, Path> detectorClasses = new HashMap<>();
 
     // 2 = Unstable
     private StabilityLevel stabilityIndex = null;

@@ -15,6 +15,7 @@
  */
 package org.wildfly.swarm.plugin;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -22,16 +23,16 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
-import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.project.ProjectBuildingResult;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 
 /**
@@ -41,27 +42,34 @@ import org.eclipse.aether.DefaultRepositorySystemSession;
  */
 public abstract class AbstractFractionsMojo extends AbstractMojo {
 
-    protected static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
-
-    protected static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
-
     private static List<MavenProject> PROBABLE_FRACTIONS = null;
 
-    public List<MavenProject> probableFractionProjects() {
+    private List<MavenProject> probableFractionProjects() throws MojoExecutionException {
         if (PROBABLE_FRACTIONS == null) {
 
-            PROBABLE_FRACTIONS = this.project.getDependencyManagement().getDependencies()
-                    .stream()
-                    .filter(this::isSwarmProject)
-                    .filter(this::isNotArquillianArtifact)
-                    .map(this::toProject)
-                    .collect(Collectors.toList());
+            final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+            request.setProcessPlugins(false);
+            request.setSystemProperties(System.getProperties());
+            request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
+            request.setRepositorySession(this.repositorySystemSession);
+            request.setResolveDependencies(true);
+
+            try {
+                PROBABLE_FRACTIONS = this.projectBuilder
+                        .build(Collections.singletonList(findRoot(this.project).getFile()), true, request)
+                        .stream()
+                        .filter(this::isNotArquillianArtifact)
+                        .map(ProjectBuildingResult::getProject)
+                        .collect(Collectors.toList());
+            } catch (ProjectBuildingException e) {
+                throw new MojoExecutionException("Error generating list of PROBABLE_FRACTIONS", e);
+            }
         }
 
         return PROBABLE_FRACTIONS;
     }
 
-    public synchronized Set<FractionMetadata> fractions() {
+    protected synchronized Set<FractionMetadata> fractions() throws MojoExecutionException {
         return probableFractionProjects()
                 .stream()
                 .map(FractionRegistry.INSTANCE::of)
@@ -69,34 +77,19 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                 .collect(Collectors.toSet());
     }
 
-    protected MavenProject toProject(Dependency dependency) {
-        try {
-            return project(dependency);
-        } catch (ProjectBuildingException e) {
-            return null;
+    protected MavenProject findRoot(MavenProject current) {
+        if (current.getArtifactId().equals("wildfly-swarm")) {
+            return current;
         }
-    }
-
-    protected MavenProject project(final Dependency dependency) throws ProjectBuildingException {
-        final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
-        request.setProcessPlugins(false);
-        request.setSystemProperties(System.getProperties());
-        request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
-        request.setRepositorySession(this.repositorySystemSession);
-        request.setResolveDependencies(true);
-        final Artifact artifact =
-                new org.apache.maven.artifact.DefaultArtifact(dependency.getGroupId(), dependency.getArtifactId(),
-                                                              dependency.getVersion(), "compile", "", "",
-                                                              new DefaultArtifactHandler());
-        return projectBuilder.build(artifact, request).getProject();
+        return findRoot(current.getParent());
     }
 
     protected boolean isSwarmProject(Dependency dependency) {
         return dependency.getGroupId().startsWith("org.wildfly.swarm");
     }
 
-    protected boolean isNotArquillianArtifact(Dependency dependency) {
-        return !dependency.getArtifactId().contains("arquillian");
+    protected boolean isNotArquillianArtifact(ProjectBuildingResult result) {
+        return !result.getProject().getArtifactId().contains("arquillian");
     }
 
     protected FractionMetadata arquillianFraction(String version) {

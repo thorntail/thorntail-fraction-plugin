@@ -18,7 +18,11 @@ package org.wildfly.swarm.plugin.fractionlist;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +36,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 import org.wildfly.swarm.plugin.FractionMetadata;
+
+import static java.nio.file.Files.copy;
 
 /**
  * @author Bob McWhirter
@@ -52,6 +58,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
         generateTxt(fractions);
         generateJSON(fractions);
         generateJavascript(fractions);
+        extractDetectors(fractions);
     }
 
     private void generateTxt(Set<FractionMetadata> fractions) {
@@ -68,7 +75,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
                 out.write("\n");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            getLog().error(e);
         }
 
         org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
@@ -128,9 +135,8 @@ public class FractionListMojo extends AbstractFractionsMojo {
 
             writer.write(";");
             writer.flush();
-            writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            getLog().error(e);
         }
 
         org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
@@ -145,6 +151,57 @@ public class FractionListMojo extends AbstractFractionsMojo {
 
         artifact.setFile(outFile);
         this.project.addAttachedArtifact(artifact);
+    }
+
+    private void extractDetectors(Set<FractionMetadata> fractions) {
+        Path buildDir = Paths.get(this.project.getBuild().getOutputDirectory());
+
+        Set<FractionMetadata> fractionsWithDetectors = fractions.stream()
+                .filter(f -> f.getDetectorClasses().size() > 0)
+                .collect(Collectors.toSet());
+
+        fractionsWithDetectors
+                .forEach(f -> {
+                    f.getDetectorClasses().forEach((relative, full) -> {
+                        try {
+                            Path target = buildDir.resolve(relative);
+                            File targetFile = target.toFile();
+                            if (!targetFile.exists()) {
+                                targetFile.getParentFile().mkdirs();
+                            }
+                            copy(full, target, StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException e) {
+                            getLog().error(e);
+                        }
+                    });
+                });
+
+        String servicesFile = "META-INF" + File.separator + "services" + File.separator + "org.wildfly.swarm.spi.meta.FractionDetector";
+        File outFile = new File(this.project.getBuild().getOutputDirectory(), servicesFile);
+        if (!outFile.exists()) {
+            outFile.getParentFile().mkdirs();
+        }
+
+        try (FileWriter writer = new FileWriter(outFile)) {
+            fractionsWithDetectors
+                    .stream()
+                    .flatMap(f -> f.getDetectorClasses().keySet().stream())
+                    .map(p -> p.toString().substring(0, p.toString().lastIndexOf('.')))
+                    .map(s -> s.replace(File.separatorChar, '.'))
+                    .forEach(p -> {
+                        try {
+                            writer.write(p);
+                            writer.write("\n");
+                        } catch (IOException e) {
+                            getLog().error(e);
+                        }
+                    });
+
+            writer.flush();
+        } catch (IOException e) {
+            getLog().error(e);
+        }
+
     }
 
     @Parameter(defaultValue = "${project.version}", readonly = true)
