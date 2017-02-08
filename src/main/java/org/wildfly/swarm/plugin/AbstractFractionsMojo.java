@@ -25,6 +25,7 @@ import javax.inject.Inject;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
@@ -43,7 +44,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     private static List<MavenProject> PROBABLE_FRACTIONS = null;
 
-    private List<MavenProject> probableFractionProjects() {
+    private List<MavenProject> probableFractionProjects() throws MojoExecutionException {
         if (PROBABLE_FRACTIONS == null) {
 
             final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
@@ -61,14 +62,14 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                         .map(ProjectBuildingResult::getProject)
                         .collect(Collectors.toList());
             } catch (ProjectBuildingException e) {
-                getLog().error(e);
+                throw new MojoExecutionException("Error generating list of PROBABLE_FRACTIONS", e);
             }
         }
 
         return PROBABLE_FRACTIONS;
     }
 
-    protected synchronized Set<FractionMetadata> fractions() {
+    protected synchronized Set<FractionMetadata> fractions() throws MojoExecutionException {
         return probableFractionProjects()
                 .stream()
                 .map(FractionRegistry.INSTANCE::of)

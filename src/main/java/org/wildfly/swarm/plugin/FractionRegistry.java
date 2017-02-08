@@ -179,7 +179,7 @@ public class FractionRegistry {
                     }
                 });
             } catch (IOException e) {
-                //ignore
+                e.printStackTrace();
             }
         }
     }

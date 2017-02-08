@@ -75,7 +75,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
                 out.write("\n");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            getLog().error(e);
         }
 
         org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
@@ -135,9 +135,8 @@ public class FractionListMojo extends AbstractFractionsMojo {
 
             writer.write(";");
             writer.flush();
-            writer.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            getLog().error(e);
         }
 
         org.apache.maven.artifact.DefaultArtifact artifact = new org.apache.maven.artifact.DefaultArtifact(
@@ -199,7 +198,6 @@ public class FractionListMojo extends AbstractFractionsMojo {
                     });
 
             writer.flush();
-            writer.close();
         } catch (IOException e) {
             getLog().error(e);
         }
