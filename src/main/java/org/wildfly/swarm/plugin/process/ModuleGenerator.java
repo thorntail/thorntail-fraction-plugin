@@ -44,6 +44,8 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
     private static final String DEPLOYMENT = "deployment";
 
+    private static final String DETECT = "detect";
+
     private static final String MODULE_XML = "module.xml";
 
     private static final String WELD_VERSION = "3";
@@ -329,7 +331,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
     }
 
     private Set<String> determineApiPaths() throws IOException {
-        return determinePaths((file) -> (!(file.contains(RUNTIME) || file.contains(DEPLOYMENT))));
+        return determinePaths((file) -> (!(file.contains(RUNTIME) || file.contains(DEPLOYMENT) || file.contains(DETECT))));
     }
 
     private Set<String> determineRuntimePaths() throws IOException {

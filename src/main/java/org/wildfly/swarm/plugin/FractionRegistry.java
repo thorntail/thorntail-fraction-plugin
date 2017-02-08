@@ -20,6 +20,7 @@ import org.apache.maven.project.MavenProject;
 
 /**
  * @author Bob McWhirter
+ * @author Ken Finnigan
  */
 public class FractionRegistry {
 
@@ -125,6 +126,7 @@ public class FractionRegistry {
 
         meta.setHasJavaCode(hasJavaCode(project));
         meta.setBaseModulePath(baseModulePath(meta));
+        findDetectorClasses(project, meta);
 
         for (Artifact artifact : project.getArtifacts()) {
 
@@ -142,6 +144,44 @@ public class FractionRegistry {
         }
 
         return meta;
+    }
+
+    private void findDetectorClasses(MavenProject project, FractionMetadata meta) {
+        Path out = Paths.get(project.getBuild().getOutputDirectory());
+
+        if (Files.exists(out)) {
+            try {
+                Files.walkFileTree(out, new SimpleFileVisitor<Path>() {
+                    boolean insideDetectPackage = false;
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        if (dir.endsWith("detect")) {
+                            insideDetectPackage = true;
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        if (insideDetectPackage) {
+                            meta.addDetectorClass(out.relativize(file), file);
+                        }
+                        return super.visitFile(file, attrs);
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        if (insideDetectPackage) {
+                            return FileVisitResult.TERMINATE;
+                        }
+                        return super.postVisitDirectory(dir, exc);
+                    }
+                });
+            } catch (IOException e) {
+                //ignore
+            }
+        }
     }
 
     private static Path baseModulePath(FractionMetadata meta) {
@@ -162,13 +202,31 @@ public class FractionRegistry {
         if (Files.exists(src)) {
             try {
                 Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
+                    boolean insideDetectPackage = false;
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        if (dir.endsWith("detect")) {
+                            insideDetectPackage = true;
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        if (file.toString().endsWith(".java")) {
+                        if (!insideDetectPackage && file.toString().endsWith(".java")) {
                             hasJava.set(true);
                             return FileVisitResult.TERMINATE;
                         }
                         return super.visitFile(file, attrs);
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        if (insideDetectPackage) {
+                            insideDetectPackage = false;
+                        }
+                        return super.postVisitDirectory(dir, exc);
                     }
                 });
             } catch (IOException e) {
