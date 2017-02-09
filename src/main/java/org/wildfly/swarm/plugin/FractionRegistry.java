@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.project.MavenProject;
 
 /**
@@ -128,20 +129,20 @@ public class FractionRegistry {
         meta.setBaseModulePath(baseModulePath(meta));
         findDetectorClasses(project, meta);
 
-        for (Artifact artifact : project.getArtifacts()) {
+        project.getModel().getDependencies()
+                .stream()
+                .filter(d -> d.getScope().equals("compile"))
+                .forEach(d -> {
+                    Key key = Key.of(d);
 
-            if (artifact.getScope().equals("compile") || artifact.getScope().equals("runtime")) {
-                Key key = Key.of(artifact);
+                    DependencyMetadata depMeta = this.dependencyRegistry.get(key);
+                    if (depMeta == null) {
+                        depMeta = new DependencyMetadata(d.getGroupId(), d.getArtifactId(), d.getVersion(), d.getClassifier(), d.getType());
+                        this.dependencyRegistry.put(key, depMeta);
+                    }
 
-                DependencyMetadata depMeta = this.dependencyRegistry.get(key);
-                if (depMeta == null) {
-                    depMeta = new DependencyMetadata(artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), artifact.getClassifier(), artifact.getType());
-                    this.dependencyRegistry.put(key, depMeta);
-                }
-
-                meta.addDependency(depMeta);
-            }
-        }
+                    meta.addDependency(depMeta);
+                });
 
         return meta;
     }
@@ -319,6 +320,10 @@ public class FractionRegistry {
 
         public static Key of(DependencyMetadata dependency) {
             return new Key(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), dependency.getClassifier(), dependency.getPackaging());
+        }
+
+        public static Key of(Dependency dependency) {
+            return new Key(dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion(), dependency.getClassifier(), dependency.getType());
         }
 
     }
