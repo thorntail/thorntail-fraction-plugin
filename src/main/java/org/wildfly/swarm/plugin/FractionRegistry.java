@@ -148,11 +148,11 @@ public class FractionRegistry {
     }
 
     private void findDetectorClasses(MavenProject project, FractionMetadata meta) {
-        Path out = Paths.get(project.getBuild().getOutputDirectory());
+        Path src = Paths.get(project.getBuild().getSourceDirectory());
 
-        if (Files.exists(out)) {
+        if (Files.exists(src)) {
             try {
-                Files.walkFileTree(out, new SimpleFileVisitor<Path>() {
+                Files.walkFileTree(src, new SimpleFileVisitor<Path>() {
                     boolean insideDetectPackage = false;
 
                     @Override
@@ -166,7 +166,7 @@ public class FractionRegistry {
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         if (insideDetectPackage) {
-                            meta.addDetectorClass(out.relativize(file), file);
+                            meta.addDetectorClass(src.relativize(file), file);
                         }
                         return super.visitFile(file, attrs);
                     }

@@ -154,7 +154,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
     }
 
     private void extractDetectors(Set<FractionMetadata> fractions) {
-        Path buildDir = Paths.get(this.project.getBuild().getOutputDirectory());
+        Path buildDir = Paths.get(this.project.getBuild().getDirectory(), "generated-sources");
 
         Set<FractionMetadata> fractionsWithDetectors = fractions.stream()
                 .filter(f -> f.getDetectorClasses().size() > 0)
