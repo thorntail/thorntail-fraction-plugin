@@ -26,7 +26,12 @@ public class CDIMarker implements Function<FractionMetadata, FractionMetadata> {
             File cdiMarker = new File(this.project.getBuild().getOutputDirectory(), CDI_MARKER);
             cdiMarker.getParentFile().mkdirs();
             try (FileWriter writer = new FileWriter(cdiMarker)) {
-                writer.write("");
+                writer.write("<beans xmlns=\"http://xmlns.jcp.org/xml/ns/javaee\"\n" +
+                        "       xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+                        "       xsi:schemaLocation=\"http://xmlns.jcp.org/xml/ns/javaee \n" +
+                        "\t\thttp://xmlns.jcp.org/xml/ns/javaee/beans_1_1.xsd\"\n" +
+                        "       bean-discovery-mode=\"annotated\">\n" +
+                        "</beans>");
                 writer.flush();
             } catch (IOException e) {
                 this.log.error(e.getMessage(), e);
