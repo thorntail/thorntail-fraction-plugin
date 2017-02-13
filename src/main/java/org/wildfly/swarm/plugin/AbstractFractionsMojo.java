@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -47,22 +48,14 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     private List<MavenProject> probableFractionProjects() throws MojoExecutionException {
         if (PROBABLE_FRACTIONS == null) {
 
-            final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
-            request.setProcessPlugins(false);
-            request.setSystemProperties(System.getProperties());
-            request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
-            request.setRepositorySession(this.repositorySystemSession);
-            request.setResolveDependencies(true);
+            PROBABLE_FRACTIONS = mavenSession.getAllProjects()
+                    .stream()
+                    .filter(this::isNotArquillianArtifact)
+                    .collect(Collectors.toList());
 
-            try {
-                PROBABLE_FRACTIONS = this.projectBuilder
-                        .build(Collections.singletonList(findRoot(this.project).getFile()), true, request)
-                        .stream()
-                        .filter(this::isNotArquillianArtifact)
-                        .map(ProjectBuildingResult::getProject)
-                        .collect(Collectors.toList());
-            } catch (ProjectBuildingException e) {
-                throw new MojoExecutionException("Error generating list of PROBABLE_FRACTIONS", e);
+            if (PROBABLE_FRACTIONS.size() < 10) {
+                getLog().warn("MavenSession does not contain all Fraction Projects, rebuilding project hierarchy directly");
+                buildProjects();
             }
         }
 
@@ -77,6 +70,26 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
                 .collect(Collectors.toSet());
     }
 
+    private void buildProjects() throws MojoExecutionException {
+        final ProjectBuildingRequest request = new DefaultProjectBuildingRequest();
+        request.setProcessPlugins(false);
+        request.setSystemProperties(System.getProperties());
+        request.setRemoteRepositories(this.project.getRemoteArtifactRepositories());
+        request.setRepositorySession(this.repositorySystemSession);
+        request.setResolveDependencies(true);
+
+        try {
+            PROBABLE_FRACTIONS = this.projectBuilder
+                    .build(Collections.singletonList(findRoot(this.project).getFile()), true, request)
+                    .stream()
+                    .filter(this::isNotArquillianArtifact)
+                    .map(ProjectBuildingResult::getProject)
+                    .collect(Collectors.toList());
+        } catch (ProjectBuildingException e) {
+            throw new MojoExecutionException("Error generating list of PROBABLE_FRACTIONS", e);
+        }
+    }
+
     protected MavenProject findRoot(MavenProject current) {
         if (current.getArtifactId().equals("wildfly-swarm")) {
             return current;
@@ -86,6 +99,10 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     protected boolean isSwarmProject(Dependency dependency) {
         return dependency.getGroupId().startsWith("org.wildfly.swarm");
+    }
+
+    private boolean isNotArquillianArtifact(MavenProject project) {
+        return !project.getArtifactId().contains("arquillian");
     }
 
     protected boolean isNotArquillianArtifact(ProjectBuildingResult result) {
@@ -105,4 +122,6 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project}", readonly = true)
     public MavenProject project;
 
+    @Inject
+    protected MavenSession mavenSession;
 }
