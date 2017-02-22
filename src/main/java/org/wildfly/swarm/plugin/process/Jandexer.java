@@ -41,6 +41,7 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
         fs.setDirectory(classesDir);
         fs.setIncludes(Collections.singletonList("**/*.class"));
         fs.setExcludes(Collections.singletonList("**/deployment/*.class"));
+        fs.setExcludes(Collections.singletonList("**/detect/*.class"));
 
         final Indexer indexer = new Indexer();
         final File dir = fs.getDirectory();
