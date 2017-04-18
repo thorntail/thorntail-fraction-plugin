@@ -47,12 +47,12 @@ import java.util.zip.ZipFile;
 
 import javax.inject.Inject;
 
-import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.resolution.ArtifactRequest;
@@ -109,9 +109,8 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
             long size = 0;
             DecimalFormat fmt = new DecimalFormat("####.00");
-            for (String each : this.allArtifacts) {
+            for (Artifact artifact : this.allArtifacts) {
                 ArtifactRequest req = new ArtifactRequest();
-                org.eclipse.aether.artifact.Artifact artifact = new DefaultArtifact(each);
                 req.setArtifact(artifact);
 
                 try {
@@ -120,7 +119,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                         File file = artifactResult.getArtifact().getFile();
                         long artifactSize = Files.size(file.toPath());
                         size += artifactSize;
-                        this.log.info(String.format("%100s %10s mb", each, fmt.format(artifactSize / (1024.0 * 1024.0))));
+                        this.log.info(String.format("%100s %10s mb", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
                     }
                 } catch (Exception e) {
                     this.log.error(e.getMessage(), e);
@@ -210,11 +209,11 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                 throw new IOException("Unable to find -feature-pack.xml");
             }
 
-            Map<String, String> versions = processFeaturePackXml(zip.getInputStream(featurePackXml));
+            Map<String, Artifact> artifacts = processFeaturePackXml(zip.getInputStream(featurePackXml));
 
             for (String moduleName : moduleXmls.keySet()) {
                 ZipEntry entry = moduleXmls.get(moduleName);
-                addFillModule(versions, moduleName, zip.getInputStream(entry), requiredModules, availableModules);
+                addFillModule(artifacts, moduleName, zip.getInputStream(entry), requiredModules, availableModules);
                 addResources(zip, moduleName, entry);
             }
         }
@@ -261,7 +260,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    private void addFillModule(Map<String, String> versions, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModule(Map<String, Artifact> artifacts, String moduleName, InputStream in, Set<String> requiredModules, Set<String> availableModules) throws IOException {
 
         Path classesDir = Paths.get(this.project.getBuild().getOutputDirectory());
         Path modulesDir = classesDir.resolve(MODULES);
@@ -279,12 +278,12 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
         Path moduleXml = moduleDir.resolve(MODULE_XML);
 
-        processFillModule(versions, moduleXml, in);
+        processFillModule(artifacts, moduleXml, in);
 
         analyzeModuleXml(modulesDir, moduleXml, requiredModules, availableModules);
     }
 
-    private void processFillModule(Map<String, String> versions, Path moduleXml, InputStream in) throws IOException {
+    private void processFillModule(Map<String, Artifact> artifacts, Path moduleXml, InputStream in) throws IOException {
         Files.createDirectories(moduleXml.getParent());
 
         NodeImporter importer = new XmlDomNodeImporterImpl();
@@ -294,9 +293,8 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
         if (rootName.equals("module")) {
             ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
-            List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = desc.getOrCreateResources().getAllArtifact();
-            for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
-                String name = artifact.getName();
+            for (ArtifactType<ResourcesType<ModuleDescriptor>> moduleArtifact : desc.getOrCreateResources().getAllArtifact()) {
+                String name = moduleArtifact.getName();
                 if (name.startsWith("${")) {
                     name = name.substring(2, name.length() - 1);
                 }
@@ -304,10 +302,10 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                     name = name.replace("?jandex", "");
                 }
 
-                name = versions.get(name);
-                artifact.name(name);
+                final Artifact artifact = artifacts.get(name);
+                moduleArtifact.name(toModuleArtifactName(artifact));
 
-                this.allArtifacts.add(name);
+                this.allArtifacts.add(artifact);
             }
 
             desc = this.rules.rewrite(desc);
@@ -323,8 +321,8 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    private Map<String, String> processFeaturePackXml(InputStream in) throws IOException {
-        Map<String, String> versions = new HashMap<>();
+    private Map<String, Artifact> processFeaturePackXml(InputStream in) throws IOException {
+        final Map<String, Artifact> artifacts = new HashMap<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
             String line = null;
 
@@ -341,19 +339,23 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                     String classifier = result.group(5);
 
                     String expr = groupId + ":" + artifactId + (classifier == null ? "" : "::" + classifier);
-                    String qualified = groupId + ":" + artifactId + ":" + version + (classifier == null ? "" : ":" + classifier);
 
-                    versions.put(expr, qualified);
+                    artifacts.put(expr, new DefaultArtifact(groupId, artifactId, classifier, "jar", version));
                 }
             }
         }
-        return versions;
+        return artifacts;
+    }
+
+    private String toModuleArtifactName(final Artifact artifact) {
+        final String name = artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
+        return artifact.getClassifier().isEmpty() ? name : name + ":" + artifact.getClassifier();
     }
 
     private void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
-        Set<Artifact> artifacts = this.project.getArtifacts();
+        Set<org.apache.maven.artifact.Artifact> artifacts = this.project.getArtifacts();
 
-        for (Artifact each : artifacts) {
+        for (org.apache.maven.artifact.Artifact each : artifacts) {
             if (each.getType().equals("zip")) {
                 indexPotentialModules(each.getFile(), potentialModules);
             }
@@ -422,14 +424,14 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
     }
 
     private void walkDependencyModules(Set<String> availableModules) throws IOException {
-        Set<Artifact> artifacts = this.project.getArtifacts();
+        Set<org.apache.maven.artifact.Artifact> artifacts = this.project.getArtifacts();
 
-        for (Artifact each : artifacts) {
+        for (org.apache.maven.artifact.Artifact each : artifacts) {
             collectAvailableModules(each, availableModules);
         }
     }
 
-    private void collectAvailableModules(Artifact artifact, Set<String> modules) throws IOException {
+    private void collectAvailableModules(org.apache.maven.artifact.Artifact artifact, Set<String> modules) throws IOException {
         if (artifact.getType().equals("jar")) {
             try (JarFile jar = new JarFile(artifact.getFile())) {
                 Enumeration<JarEntry> entries = jar.entries();
@@ -530,6 +532,6 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
     private ModuleRewriteConf rules;
 
-    private Set<String> allArtifacts = new HashSet<>();
+    private Set<Artifact> allArtifacts = new HashSet<>();
 
 }
