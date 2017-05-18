@@ -216,6 +216,15 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
                     .name(moduleName)
                     .slot(DEPLOYMENT);
 
+            ModuleDependencyType<DependenciesType<ModuleDescriptor>> deploymentMainDep = deploymentModule.getOrCreateDependencies()
+                    .createModule();
+            deploymentMainDep.name(moduleName)
+                    .slot(mainModule.getSlot());
+
+
+            FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> depMainImports = deploymentMainDep.getOrCreateImports();
+            PathSetType<FilterType<ModuleDependencyType<DependenciesType<ModuleDescriptor>>>> depMainExcludes = depMainImports.createExcludeSet();
+
             ArtifactType<ResourcesType<ModuleDescriptor>> deploymentArtifact = deploymentModule.getOrCreateResources().createArtifact();
             deploymentArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
 
@@ -228,12 +237,14 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
             for (String path : runtimePaths) {
                 deploymentExcludeSet.createPath().name(path);
+                depMainExcludes.createPath().name(path);
             }
 
-            ModuleDependencyType<DependenciesType<ModuleDescriptor>> deploymentMainDep = deploymentModule.getOrCreateDependencies()
-                    .createModule();
-            deploymentMainDep.name(moduleName)
-                    .slot(mainModule.getSlot());
+            deploymentExcludeSet.createPath().name("META-INF");
+            deploymentExcludeSet.createPath().name("META-INF/**");
+
+            depMainExcludes.createPath().name("META-INF");
+            depMainExcludes.createPath().name("META-INF/**");
 
             addDependencies(deploymentModule, dependencies);
 
