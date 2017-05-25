@@ -16,6 +16,7 @@
 package org.wildfly.swarm.plugin.bom;
 
 import java.util.Collection;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.maven.project.MavenProject;
@@ -30,6 +31,9 @@ class BomBuilder {
                                      final String template,
                                      final Collection<DependencyMetadata> bomItems) {
 
+        String removeIfRegexp = "(?s)#\\{remove-if-" + Pattern.quote(rootProject.getArtifactId()) + "}.*?#\\{/remove-if-"
+                + Pattern.quote(rootProject.getArtifactId()) + "}\n?";
+
         return template.replace("#{dependencies}",
                                 String.join("\n",
                                             bomItems.stream()
@@ -37,7 +41,9 @@ class BomBuilder {
                                                     .collect(Collectors.toList())))
                 .replace("#{bom-artifactId}", rootProject.getArtifactId())
                 .replace("#{bom-name}", rootProject.getName())
-                .replace("#{bom-description}", rootProject.getDescription());
+                .replace("#{bom-description}", rootProject.getDescription())
+                .replaceAll(removeIfRegexp, "")
+                .replaceAll("#\\{/?remove-if-.*?}\n?", "");
 
     }
 
