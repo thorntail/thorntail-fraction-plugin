@@ -37,7 +37,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
 import org.wildfly.swarm.plugin.FractionRegistry;
 
 @Mojo(name = "generate-bom",
-        defaultPhase = LifecyclePhase.PACKAGE)
+        defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
 public class BomMojo extends AbstractFractionsMojo {
 
     @Override
