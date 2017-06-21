@@ -99,16 +99,37 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         getLog().info("Remove unneeded files from local M2 Repo, " + repoDirPath.toAbsolutePath());
 
         Files.walkFileTree(repoDirPath, new SimpleFileVisitor<Path>() {
+            private boolean pruneDirectory = false;
+
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.endsWith("_remote.repositories")) {
+                // If we need to prune communtiy artifacts, ie those from Central, then remove from repository
+                if (!pruneDirectory && Boolean.parseBoolean(removeCommunity)) {
+                    if (!file.toString().contains("redhat-")) {
+                        pruneDirectory = true;
+                    }
+                }
+
+                if (pruneDirectory) {
+                    Files.delete(file);
+                } else if (file.endsWith("_remote.repositories")) {
                     Files.delete(file);
                 } else if (file.toString().endsWith(".lastUpdated")) {
-                    System.out.println("Filename endswith - " + file.getFileName());
                     Files.delete(file);
                 }
 
                 return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                if (exc == null && pruneDirectory) {
+                    pruneDirectory = false;
+                    Files.delete(dir);
+                } else if (dir.toFile().listFiles().length == 0) {
+                    Files.delete(dir);
+                }
+                return super.postVisitDirectory(dir, exc);
             }
         });
     }
@@ -148,4 +169,7 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
 
     @Parameter
     private File userSettings;
+
+    @Parameter(defaultValue = "false")
+    private String removeCommunity;
 }

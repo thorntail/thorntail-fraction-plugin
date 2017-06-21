@@ -32,15 +32,14 @@ class BomProjectBuilder {
 
     private static File preparePom(File bomFile, File generatedProject, File projectTemplate) throws Exception {
         String dependencies = extract(bomFile, "//dependencyManagement/dependencies/*")
+                .skipping("dependency-bom", "shrinkwrap")
                 .asString();
         String properties = extract(bomFile, "//properties/*").asString();
         String swarmVersion = extract(bomFile, "/project/version/text()").asString();
-        String bomArtifact = extract(bomFile, "/project/artifactId/text()").asString();
         String pomContent = readTemplate(projectTemplate)
                 .replace(DEPENDENCIES_PLACEHOLDER, dependencies)
                 .replace(PROPERTIES, properties)
-                .replace(SWARM_VERSION, swarmVersion)
-                .replace(BOM_ARTIFACT, bomArtifact);
+                .replace(SWARM_VERSION, swarmVersion);
         File pom = new File(generatedProject, "pom.xml");
         pom.createNewFile();
         try (FileWriter writer = new FileWriter(pom)) {
