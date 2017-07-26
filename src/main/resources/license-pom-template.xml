@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ~ Copyright 2017 Red Hat, Inc. and/or its affiliates. ~ ~ Licensed under
+   the Apache License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+   <modelVersion>4.0.0</modelVersion>
+   <groupId>org.wildfly.swarm</groupId>
+   <artifactId>generate-licence-xml</artifactId>
+   <version>1.0.0</version>
+   <packaging>pom</packaging>
+
+   <properties>
+      <license.directory>${project.build.directory}</license.directory>
+   </properties>
+
+   <dependencies>
+   #{dependencies}
+   </dependencies>
+
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.wildfly.maven.plugins</groupId>
+            <artifactId>licenses-plugin</artifactId>
+            <inherited>false</inherited>
+            <executions>
+               <execution>
+                  <id>update-licenses-xml</id>
+                  <goals>
+                     <goal>insert-versions</goal>
+                  </goals>
+                  <phase>prepare-package</phase>
+                  <configuration>
+                     <sortByGroupIdAndArtifactId>true</sortByGroupIdAndArtifactId>
+                     <licensesOutputDirectory>${license.directory}</licensesOutputDirectory>
+                     <licensesOutputFile>${license.directory}/licenses.xml</licensesOutputFile>
+                     <includeTransitiveDependencies>false</includeTransitiveDependencies>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+      </plugins>
+   </build>
+
+</project>

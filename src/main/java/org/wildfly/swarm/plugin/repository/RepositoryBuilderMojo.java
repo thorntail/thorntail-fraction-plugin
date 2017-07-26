@@ -40,8 +40,14 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         super.execute();
 
         try {
-            File repoDir = new File(this.project.getBuild().getDirectory(), "repository");
-            repoDir.mkdirs();
+            repoDir = new File(this.project.getBuild().getDirectory(), "repository");
+            if (!repoDir.mkdirs()) {
+                String[] repoDirFiles = repoDir.list();
+                if (repoDir.exists() && (repoDirFiles != null && repoDirFiles.length > 0)) {
+                    getLog().info("Repository already created, using existing content.");
+                    return;
+                }
+            }
 
             // Load project dependencies into local M2 repo
             executeGeneratedProjectBuild(pomFile, projectDir, repoDir);
@@ -49,17 +55,19 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
             // Clear out unnecessary files from local M2 repo
             santizeRepo(repoDir.toPath());
 
-            // Zip local M2 repo
-            File repoZip = new File(this.project.getBuild().getDirectory(), this.project.getArtifactId() + "-" + this.project.getVersion() + ".zip");
+            if (generateZip) {
+                // Zip local M2 repo
+                File repoZip = new File(this.project.getBuild().getDirectory(), this.project.getArtifactId() + "-" + this.project.getVersion() + ".zip");
 
-            try (FileOutputStream fos = new FileOutputStream(repoZip);
-                 ZipOutputStream zipOut = new ZipOutputStream(fos)) {
-                zipFile(repoDir, repoDir.getName(), zipOut);
+                try (FileOutputStream fos = new FileOutputStream(repoZip);
+                     ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+                    zipFile(repoDir, repoDir.getName(), zipOut);
+                }
+
+                // Attach zip of M2 repo to Maven Project
+                projectHelper.attachArtifact(this.project, "zip", repoZip);
+                getLog().info("Attached M2 Repo zip as project artifact.");
             }
-
-            // Attach zip of M2 repo to Maven Project
-            projectHelper.attachArtifact(this.project, "zip", repoZip);
-            getLog().info("Attached M2 Repo zip as project artifact.");
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
@@ -168,8 +176,12 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
     private String downloadPoms;
 
     @Parameter
-    private File userSettings;
+    protected File userSettings;
 
     @Parameter(defaultValue = "false")
     private String removeCommunity;
+
+    boolean generateZip = true;
+
+    File repoDir;
 }
