@@ -97,6 +97,8 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
                 .name(moduleName)
                 .slot(RUNTIME);
 
+        markModulePrivate(runtimeModule);
+
         ArtifactType<ResourcesType<ModuleDescriptor>> runtimeArtifact = runtimeModule.getOrCreateResources().createArtifact();
         runtimeArtifact.name(this.project.getGroupId() + ":" + this.project.getArtifactId() + ":" + this.project.getVersion());
 
@@ -255,6 +257,10 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
         export(apiModule, apiModuleXml);
         export(runtimeModule, runtimeModuleXml);
         export(deploymentModule, deploymentModuleXml);
+    }
+
+    private void markModulePrivate(ModuleDescriptor module) {
+        module.getOrCreateProperties().createProperty().name("jboss.api").value("private");
     }
 
     private void addDependencies(ModuleDescriptor module, List<String> dependencies) {
