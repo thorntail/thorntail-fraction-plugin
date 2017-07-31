@@ -199,10 +199,12 @@ public class LicenseMojo extends RepositoryBuilderMojo {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (file.toString().endsWith(".pom")) {
-                    pomConsumer.accept(file);
-                } else if (!hasPom && file.toString().endsWith(".jar")) {
-                    jarConsumer.accept(file);
+                if (!isExcluded(file)) {
+                    if (file.toString().endsWith(".pom")) {
+                        pomConsumer.accept(file);
+                    } else if (!hasPom && file.toString().endsWith(".jar")) {
+                        jarConsumer.accept(file);
+                    }
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -213,6 +215,19 @@ public class LicenseMojo extends RepositoryBuilderMojo {
                 return super.postVisitDirectory(dir, exc);
             }
         });
+    }
+
+    private boolean isExcluded(Path file) {
+        if (excludes == null || excludes.length < 1) {
+            return false;
+        }
+        for (String exclude : excludes) {
+            if (repoDir.toPath().relativize(file).toString().matches(exclude)) {
+                getLog().info("Excluding " + file);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void convertPomToDependency(Path pomPath, Consumer<Dependency> dependencyConsumer) {
@@ -232,7 +247,7 @@ public class LicenseMojo extends RepositoryBuilderMojo {
             if (dep.version == null || dep.version.isEmpty()) {
                 dep.version = parentVersionExpression().evaluate(pom);
             }
-            if (dep.packaging == null || dep.packaging.isEmpty() || "bundle".equals(dep.packaging)) {
+            if (dep.packaging == null || dep.packaging.isEmpty() || isJarPackaging(dep.packaging)) {
                 dep.packaging = "jar";
             }
             dependencyConsumer.accept(dep);
@@ -240,6 +255,10 @@ public class LicenseMojo extends RepositoryBuilderMojo {
         } catch (IOException | SAXException | ParserConfigurationException | XPathExpressionException e) {
             getLog().error(e);
         }
+    }
+
+    private boolean isJarPackaging(String packagingType) {
+        return "bundle".equals(packagingType) || packagingType.startsWith("eclipse-");
     }
 
     private void convertJarToDependency(Path jarPath, Consumer<Dependency> dependencyConsumer) {
@@ -263,8 +282,6 @@ public class LicenseMojo extends RepositoryBuilderMojo {
                         }
                     }
                 }
-
-                dependencyConsumer.accept(dep);
             } else {
                 // Didn't find pom.properties so try MANIFEST.MF
                 entries = jarFile.stream().filter(entry -> entry.getName().contains("MANIFEST.MF")).collect(Collectors.toList());
@@ -282,8 +299,24 @@ public class LicenseMojo extends RepositoryBuilderMojo {
                         }
                     }
                 }
-
             }
+
+            String artifactName = jarPath.toAbsolutePath().toString();
+
+            if (!dep.isComplete()) {
+                getLog().warn("Skipping incomplete dependency: " + dep.toString() + " for " + artifactName);
+                return;
+            }
+
+            if (!artifactName.substring(artifactName.lastIndexOf('.') + 1).endsWith(dep.version)) {
+                // Auto created pom.properties/manifest does not contain classifier
+                // we can do nothing but ignore such arfitact
+                getLog().warn("Skipping artifact with classifier: " + artifactName);
+                return;
+            }
+
+            dependencyConsumer.accept(dep);
+
         } catch (IOException e) {
             getLog().error(e);
         }
@@ -354,6 +387,13 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     @Parameter
     protected File outputDirectory;
 
+    /**
+     * List of regular expressions used to exclude files from the repository. Only the part relative to the repo is matched for a file path, e.g.
+     * <code>org/jboss/weld/se/weld-se-core/2.3.5.Final/weld-se-core-2.3.5.Final.jar</code>.
+     */
+    @Parameter
+    private String[] excludes;
+
     private XPath xpath;
     private XPathExpression parentGroupIdExpression;
     private XPathExpression parentVersionExpression;
@@ -395,11 +435,15 @@ public class LicenseMojo extends RepositoryBuilderMojo {
 
         @Override
         public String toString() {
-            return groupId + ':' + artifactId + ':' + version;
+            return groupId + ':' + artifactId + ':' + packaging + ':' + version;
         }
 
         String asPomElement() {
             return String.format(POM_FORMAT, groupId, artifactId, version, packaging);
+        }
+
+        boolean isComplete() {
+            return groupId != null && artifactId != null && version != null && packaging != null;
         }
 
     }
