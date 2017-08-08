@@ -35,6 +35,7 @@ import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuildingResult;
 import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.wildfly.swarm.plugin.DependencyMetadata.Scope;
 
 /**
  * @author Bob McWhirter
@@ -110,7 +111,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected FractionMetadata arquillianFraction(String version) {
-        return new FractionMetadata("org.wildfly.swarm", "arquillian", version);
+        return new FractionMetadata("org.wildfly.swarm", "arquillian", version, Scope.TEST.getValue());
     }
 
     @Inject
