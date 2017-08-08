@@ -33,6 +33,8 @@ public class FractionRegistry {
 
     private static final String FRACTION_BOOTSTRAP_PROPERTY = "swarm.fraction.bootstrap";
 
+    private static final String FRACTION_SCOPE_PROPERTY_NAME = "swarm.fraction.scope";
+
     private static final String BOM_PROPERTY = "swarm.bom";
 
     private Map<Key, FractionMetadata> fractionRegistry = new HashMap<>();
@@ -70,7 +72,9 @@ public class FractionRegistry {
     }
 
     private FractionMetadata build(MavenProject project) {
-        FractionMetadata meta = new FractionMetadata(project.getGroupId(), project.getArtifactId(), project.getVersion());
+
+        FractionMetadata meta = new FractionMetadata(project.getGroupId(), project.getArtifactId(), project.getVersion(),
+                project.getProperties().getProperty(FRACTION_SCOPE_PROPERTY_NAME));
 
         meta.setName(project.getName());
         meta.setDescription(project.getDescription());
@@ -86,7 +90,6 @@ public class FractionRegistry {
             }
             meta.setStabilityIndex(stabilityLevel);
         }
-
 
         String tags = project.getProperties().getProperty(FRACTION_TAGS_PROPERTY_NAME);
         if (tags != null) {

@@ -88,7 +88,7 @@ public class CertifiedBomMojo extends AbstractFractionsMojo {
                         })
                         .map(e -> {
                             String[] parts = e.split(":");
-                            return new FractionMetadata(parts[0], parts[1], parts[2]);
+                            return new FractionMetadata(parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : null);
                         })
                         .filter(e -> {
                             return certifiedFractions.contains(e.getArtifactId());

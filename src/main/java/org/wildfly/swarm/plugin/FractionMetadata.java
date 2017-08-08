@@ -36,7 +36,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class FractionMetadata extends DependencyMetadata {
 
     public FractionMetadata(String groupId, String artifactId, String version) {
-        super(groupId, artifactId, version, null, "jar");
+        this(groupId, artifactId, version, null);
+    }
+
+    public FractionMetadata(String groupId, String artifactId, String version, String scope) {
+        super(groupId, artifactId, version, null, "jar", scope);
     }
 
     @JsonIgnore
@@ -219,6 +223,11 @@ public class FractionMetadata extends DependencyMetadata {
 
     public String toString() {
         return getGroupId() + ":" + getArtifactId() + ":" + this.getVersion();
+    }
+
+    @JsonIgnore
+    public String getFractionListString() {
+        return getGroupId() + ":" + getArtifactId() + ":" + this.getVersion() + (hasDefaultScope() ? "" : (":" + this.getScope()));
     }
 
     @JsonIgnore

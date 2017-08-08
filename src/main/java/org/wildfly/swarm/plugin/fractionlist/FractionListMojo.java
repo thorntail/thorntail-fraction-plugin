@@ -69,7 +69,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
 
         try (FileWriter out = new FileWriter(outFile)) {
             for (FractionMetadata each : fractions) {
-                out.write(each.toString());
+                out.write(each.getFractionListString());
                 out.write(" = ");
                 out.write(each.getDependenciesString());
                 out.write("\n");

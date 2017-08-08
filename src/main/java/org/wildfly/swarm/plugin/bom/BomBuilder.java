@@ -42,14 +42,12 @@ class BomBuilder {
     }
 
     private static String pomGav(DependencyMetadata project) {
-        return pomGav(project.getGroupId(), project.getArtifactId(), project.getVersion());
+        return String.format(DEP_TEMPLATE, project.getGroupId(), project.getArtifactId(), project.getVersion(),
+                project.hasDefaultScope() ? "" : "\n        <scope>" + project.getScope() + "</scope>");
     }
 
-    private static String pomGav(final String groupId, final String artifactId, final String version) {
-        return String.format(DEP_TEMPLATE, groupId, artifactId, version);
-    }
+    private static final String DEP_TEMPLATE = "      <dependency>\n        <groupId>%s</groupId>\n"
+            + "        <artifactId>%s</artifactId>\n        <version>%s</version>%s\n      </dependency>";
 
-    private static final String DEP_TEMPLATE = "      <dependency>\n        <groupId>%s</groupId>\n" +
-            "        <artifactId>%s</artifactId>\n        <version>%s</version>\n      </dependency>";
 }
 
