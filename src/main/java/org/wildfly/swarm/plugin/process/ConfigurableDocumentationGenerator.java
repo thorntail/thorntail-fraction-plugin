@@ -170,7 +170,7 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
 
             while (entries.hasMoreElements()) {
                 JarEntry each = entries.nextElement();
-                if (each.getName().endsWith(".class")) {
+                if (each.getName().endsWith(".class") && !each.getName().equals("module-info.class")) {
                     try (InputStream in = jar.getInputStream(each)) {
                         indexer.index(in);
                     }
