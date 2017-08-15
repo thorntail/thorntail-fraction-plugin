@@ -218,6 +218,11 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     }
 
     private boolean isExcluded(Path file) {
+        // The air gap repo does not contain any community bits but few more are downloaded as various maven plugin dependencies
+        // when executing license project template
+        if (isRemoveCommunity() && !isProductizedArtifact(file)) {
+            return true;
+        }
         if (excludes == null || excludes.length < 1) {
             return false;
         }
