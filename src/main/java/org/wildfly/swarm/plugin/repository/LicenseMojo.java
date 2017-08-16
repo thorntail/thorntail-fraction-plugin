@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -147,6 +148,11 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     }
 
     private String loadTemplate() throws IOException {
+        if (licensesTemplate != null && licensesTemplate.exists()) {
+            getLog().info("Using license project template: " + licensesTemplate);
+            return new String(Files.readAllBytes(licensesTemplate.toPath()), StandardCharsets.UTF_8);
+        }
+        getLog().info("Using the default license project template");
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(LicenseMojo.class.getClassLoader().getResourceAsStream(LICENCE_POM_TEMPLATE), "UTF-8"))) {
             StringWriter writer = new StringWriter();
@@ -398,6 +404,12 @@ public class LicenseMojo extends RepositoryBuilderMojo {
      */
     @Parameter
     private String[] excludes;
+
+    /**
+     * Optional template used to collect all licenses of all BOM dependencies.
+     */
+    @Parameter
+    private File licensesTemplate;
 
     private XPath xpath;
     private XPathExpression parentGroupIdExpression;
