@@ -112,20 +112,14 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 // If we need to prune communtiy artifacts, ie those from Central, then remove from repository
-                if (!pruneDirectory && Boolean.parseBoolean(removeCommunity)) {
-                    if (!file.toString().contains("redhat-")) {
-                        pruneDirectory = true;
-                    }
+                if (!pruneDirectory && isRemoveCommunity() && !isProductizedArtifact(file) && !isUnneeded(file)) {
+                    pruneDirectory = true;
                 }
-
                 if (pruneDirectory) {
                     Files.delete(file);
-                } else if (file.endsWith("_remote.repositories")) {
-                    Files.delete(file);
-                } else if (file.toString().endsWith(".lastUpdated")) {
+                } else if (isUnneeded(file)) {
                     Files.delete(file);
                 }
-
                 return FileVisitResult.CONTINUE;
             }
 
@@ -139,7 +133,20 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
                 }
                 return super.postVisitDirectory(dir, exc);
             }
+
+            private boolean isUnneeded(Path file) {
+                return file.endsWith("_remote.repositories") || file.toString().endsWith(".lastUpdated");
+            }
+
         });
+    }
+
+    protected boolean isRemoveCommunity() {
+        return Boolean.parseBoolean(removeCommunity);
+    }
+
+    protected boolean isProductizedArtifact(Path file) {
+        return file.toString().contains("redhat-");
     }
 
     private static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
