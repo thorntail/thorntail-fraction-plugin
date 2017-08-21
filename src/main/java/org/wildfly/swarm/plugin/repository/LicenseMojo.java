@@ -25,7 +25,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -101,17 +100,6 @@ public class LicenseMojo extends RepositoryBuilderMojo {
             // Run Maven build to update license information
             executeLicenseProject(licensePomFile, repoDir);
 
-            // Copy licenses.xml result to output directory
-            if (outputDirectory != null) {
-                outputDirectory.mkdirs();
-                if (outputDirectory.isDirectory()) {
-                    File outputFile = new File(outputDirectory, "licenses.xml");
-                    Files.copy(new File(this.project.getBuild().getDirectory() + "/" + LICENCE_PROJECT_DIR + "/target/licenses.xml").toPath(),
-                            outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    getLog().info("licenses.xml copied to: " + outputFile.getAbsolutePath());
-                }
-            }
-
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
@@ -172,7 +160,7 @@ public class LicenseMojo extends RepositoryBuilderMojo {
         mavenRequest.setBaseDirectory(pomFile.getParentFile());
         mavenRequest.setUserSettingsFile(userSettings);
         mavenRequest.setLocalRepositoryDirectory(repoDir);
-        mavenRequest.setGoals(Arrays.asList(new String[] {"clean", "package"}));
+        mavenRequest.setGoals(Arrays.asList("clean", "package"));
 
         Invoker invoker = new DefaultInvoker();
         try {
@@ -395,9 +383,6 @@ public class LicenseMojo extends RepositoryBuilderMojo {
         return packagingExpression;
     }
 
-    @Parameter
-    protected File outputDirectory;
-
     /**
      * List of regular expressions used to exclude files from the repository. Only the part relative to the repo is matched for a file path, e.g.
      * <code>org/jboss/weld/se/weld-se-core/2.3.5.Final/weld-se-core-2.3.5.Final.jar</code>.
@@ -412,12 +397,19 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     private File licensesTemplate;
 
     private XPath xpath;
+
     private XPathExpression parentGroupIdExpression;
+
     private XPathExpression parentVersionExpression;
+
     private XPathExpression groupIdExpression;
+
     private XPathExpression artifactIdExpression;
+
     private XPathExpression versionExpression;
+
     private XPathExpression packagingExpression;
+
     private DocumentBuilder documentBuilder;
 
     class Dependency {
