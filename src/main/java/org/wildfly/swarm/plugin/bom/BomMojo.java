@@ -88,6 +88,8 @@ public class BomMojo extends AbstractFractionsMojo {
         }
 
         project.setFile(bomPath.toFile());
+
+        getPluginContext().put("STABILITY_INDEX", this.stabilityIndex);
     }
 
     private String readTemplate() throws MojoFailureException {
