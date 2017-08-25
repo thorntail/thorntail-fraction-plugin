@@ -19,9 +19,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
@@ -42,6 +45,7 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.exporter.ExplodedExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.wildfly.swarm.plugin.AbstractFractionsMojo;
+import org.wildfly.swarm.plugin.FractionMetadata;
 import org.wildfly.swarm.plugin.StabilityLevel;
 
 @Mojo(name = "prep-doc-source",
@@ -77,7 +81,30 @@ public class DocPrepMojo extends AbstractFractionsMojo {
                                             d.getVersion(),
                                             null));
 
-        fractions()
+        Set<FractionMetadata> allFractions = fractions();
+        Collection<FractionMetadata> fractions = null;
+
+        String stabilityIndex = (String) getPluginContext().get("STABILITY_INDEX");
+
+        if (stabilityIndex != null) {
+            stabilityIndex = stabilityIndex.trim();
+            if (stabilityIndex.equals("*")) {
+                fractions = allFractions;
+            } else if (stabilityIndex.endsWith("+")) {
+                int level = Integer.parseInt(stabilityIndex.substring(0, stabilityIndex.length() - 1));
+                fractions = allFractions
+                        .stream()
+                        .filter((e) -> e.getStabilityIndex().ordinal() >= level)
+                        .collect(Collectors.toSet());
+            } else {
+                int level = Integer.parseInt(stabilityIndex);
+                fractions = allFractions
+                        .stream()
+                        .filter((e) -> e.getStabilityIndex().ordinal() == level)
+                        .collect(Collectors.toSet());
+            }
+        }
+        fractions
                 .forEach(fraction -> exportSources(fraction.getName(),
                                                    fraction.getGroupId(),
                                                    fraction.getArtifactId(),
@@ -86,10 +113,10 @@ public class DocPrepMojo extends AbstractFractionsMojo {
     }
 
     private void exportSources(final String name,
-                                 final String groupId,
-                                 final String artifactId,
-                                 final String version,
-                                 final StabilityLevel stability) {
+                               final String groupId,
+                               final String artifactId,
+                               final String version,
+                               final StabilityLevel stability) {
         final File destDir = new File(this.sourceOutputDir, artifactId);
         destDir.mkdirs();
 
@@ -122,10 +149,10 @@ public class DocPrepMojo extends AbstractFractionsMojo {
     }
 
     private File resolveArtifact(final String group,
-                                   final String name,
-                                   final String version,
-                                   final String classifier,
-                                   final String type) throws ArtifactResolutionException {
+                                 final String name,
+                                 final String version,
+                                 final String classifier,
+                                 final String type) throws ArtifactResolutionException {
         final DefaultArtifact artifact = new DefaultArtifact(group, name, classifier, type, version);
         final LocalArtifactResult localResult = this.repositorySystemSession.getLocalRepositoryManager()
                 .find(this.repositorySystemSession, new LocalArtifactRequest(artifact, this.remoteRepositories, null));
