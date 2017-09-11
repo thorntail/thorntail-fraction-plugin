@@ -1,6 +1,8 @@
 package org.wildfly.swarm.plugin.repository;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -15,19 +17,12 @@ import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 @Mojo(name = "generate-project",
         defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
 public class ProjectBuilderMojo extends AbstractFractionsMojo {
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        final File bomFile = new File(this.project.getBuild().getOutputDirectory(), "bom.pom");
-
-        if (!bomFile.exists()) {
-            throw new MojoFailureException("No bom.pom file find in target directory. Please add `generate-bom` goal of fraction-plugin to project.");
-        }
-
-        if (!template.exists()) {
-            throw new MojoFailureException("Unable to proceed without a `template` specified for generating a project pom.xml.");
-        }
 
         try {
+            // Initialize the project dir first
             projectDir = new File(this.project.getBuild().getDirectory(), "generated-project");
             if (!projectDir.mkdirs()) {
                 if (projectDir.exists()) {
@@ -38,12 +33,29 @@ public class ProjectBuilderMojo extends AbstractFractionsMojo {
                 }
             }
 
-            pomFile = BomProjectBuilder.generateProject(projectDir, bomFile, template);
-            if (!pomFile.exists()) {
-                throw new MojoFailureException("Failed to create project pom.xml");
+            if (pomFile == null || !pomFile.canRead()) {
+                // There is no pom.xml specified - generate one from BOM
+                final File bomFile = new File(this.project.getBuild().getOutputDirectory(), "bom.pom");
+
+                if (!bomFile.exists()) {
+                    throw new MojoFailureException("No bom.pom file find in target directory. Please add `generate-bom` goal of fraction-plugin to project.");
+                }
+                if (!template.exists()) {
+                    throw new MojoFailureException("Unable to proceed without a `template` specified for generating a project pom.xml.");
+                }
+
+                repoPomFile = BomProjectBuilder.generateProject(projectDir, bomFile, template);
+                if (!repoPomFile.exists()) {
+                    throw new MojoFailureException("Failed to create project pom.xml");
+                }
+                getLog().info("Generated pom.xml from BOM: " + repoPomFile.getAbsolutePath());
+            } else {
+                // Use the specified pom.xml
+                repoPomFile = new File(projectDir, "pom.xml");
+                Files.copy(pomFile.toPath(), repoPomFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                getLog().info("Copied pom.xml from existing: " + repoPomFile.getAbsolutePath());
             }
 
-            getLog().info("Generated pom.xml for project with BOM: " + pomFile.getAbsolutePath());
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
@@ -52,7 +64,11 @@ public class ProjectBuilderMojo extends AbstractFractionsMojo {
     @Parameter
     private File template;
 
+    @Parameter
+    protected File pomFile;
+
+    protected File repoPomFile;
+
     File projectDir;
 
-    File pomFile;
 }
