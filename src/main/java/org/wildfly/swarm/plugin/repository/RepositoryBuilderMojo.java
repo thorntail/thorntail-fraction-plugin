@@ -36,7 +36,8 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        // Execute parent Mojo that will generate project from bom
+
+        // Execute parent Mojo that will eventually generate project from bom
         super.execute();
 
         try {
@@ -50,7 +51,7 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
             }
 
             // Load project dependencies into local M2 repo
-            executeGeneratedProjectBuild(pomFile, projectDir, repoDir);
+            executeGeneratedProjectBuild(repoPomFile, projectDir, repoDir);
 
             // Clear out unnecessary files from local M2 repo
             santizeRepo(repoDir.toPath());
