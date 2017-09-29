@@ -8,7 +8,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * @author Bob McWhirter
  */
-public class DependencyMetadata {
+public class DependencyMetadata implements Comparable<DependencyMetadata> {
+
 
     private final String groupId;
 
@@ -24,6 +25,18 @@ public class DependencyMetadata {
 
     DependencyMetadata(FractionMetadata meta) {
         this(meta.getGroupId(), meta.getArtifactId(), meta.getVersion(), meta.getClassifier(), meta.getPackaging(), meta.getScope());
+    }
+
+    public static DependencyMetadata fromMscGav(String gav) {
+        String[] parts = gav.split(":");
+        if (parts.length == 3) {
+            return new DependencyMetadata(parts[0], parts[1], parts[2], null, "jar", null);
+        } else if (parts.length == 4) {
+            return new DependencyMetadata(parts[0], parts[1], parts[2], parts[3], "jar", null);
+        } else {
+            throw new RuntimeException("Invalid gav: " + gav);
+        }
+
     }
 
     public DependencyMetadata(String groupId, String artifactId, String version, String classifier, String packaging) {
@@ -77,9 +90,34 @@ public class DependencyMetadata {
         return hasDefaultScope() ? null : getScope();
     }
 
+    public static DependencyMetadata fromString(String gav) {
+        String[] parts = gav.split(":");
+
+        if (parts.length == 4) {
+            return new DependencyMetadata(parts[0], parts[1], parts[3], null, parts[2]);
+        } else {
+            return new DependencyMetadata(parts[0], parts[1], parts[4], parts[3], parts[2]);
+        }
+    }
+
     @Override
     public String toString() {
         return this.groupId + ":" + this.artifactId + ":" + this.packaging + (this.classifier == null ? "" : ":" + this.classifier) + ":" + this.version;
+    }
+
+    @Override
+    public int compareTo(DependencyMetadata that) {
+        return this.toString().compareTo(that.toString());
+    }
+
+    @Override
+    public boolean equals(Object that) {
+        return this.toString().equals(that.toString());
+    }
+
+    @Override
+    public int hashCode() {
+        return this.toString().hashCode();
     }
 
     enum Scope {

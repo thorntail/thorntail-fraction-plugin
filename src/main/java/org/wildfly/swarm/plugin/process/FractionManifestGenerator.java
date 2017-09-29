@@ -60,6 +60,12 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
                         .map(DependencyMetadata::toString)
                         .collect(Collectors.toList())
             );
+            put("transitive-dependencies",
+                meta.getTransitiveDependencies()
+                        .stream()
+                        .map(DependencyMetadata::toString)
+                        .collect(Collectors.toList())
+            );
         }};
 
         Path file = Paths.get(this.project.getBuild().getOutputDirectory(), "META-INF", "fraction-manifest.yaml");

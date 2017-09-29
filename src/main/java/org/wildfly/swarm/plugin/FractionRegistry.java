@@ -1,6 +1,7 @@
 package org.wildfly.swarm.plugin;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.project.MavenProject;
+import org.yaml.snakeyaml.Yaml;
 
 /**
  * @author Bob McWhirter
@@ -74,7 +76,7 @@ public class FractionRegistry {
     private FractionMetadata build(MavenProject project) {
 
         FractionMetadata meta = new FractionMetadata(project.getGroupId(), project.getArtifactId(), project.getVersion(),
-                project.getProperties().getProperty(FRACTION_SCOPE_PROPERTY_NAME));
+                                                     project.getProperties().getProperty(FRACTION_SCOPE_PROPERTY_NAME));
 
         meta.setName(project.getName());
         meta.setDescription(project.getDescription());
@@ -112,6 +114,19 @@ public class FractionRegistry {
             if (Files.exists(moduleConf)) {
                 meta.setModuleConf(moduleConf);
             }
+            Path manifest = Paths.get(project.getBasedir().getAbsolutePath(), "target", "classes", "META-INF", "fraction-manifest.yaml");
+            if (Files.exists(manifest)) {
+                Yaml yaml = new Yaml();
+                try (FileReader reader = new FileReader(manifest.toFile())) {
+                    Map<String, ?> result = (Map<String, ?>) yaml.load(reader);
+                    List<String> transitiveDeps = (List<String>) result.get("transitive-dependencies");
+                    for (String each : transitiveDeps) {
+                        meta.addTransitiveDependency(DependencyMetadata.fromString(each));
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
 
         meta.setJavaFraction(findJavaFraction(project));
@@ -146,6 +161,9 @@ public class FractionRegistry {
 
                     meta.addDependency(depMeta);
                 });
+
+        //System.err.println("-->" + project.getArtifact().getFile());
+
 
         return meta;
     }
