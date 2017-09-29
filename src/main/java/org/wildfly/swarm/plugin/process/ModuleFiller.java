@@ -91,6 +91,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
     public FractionMetadata apply(FractionMetadata meta) {
         try {
+            this.meta = meta;
             loadRewriteRules();
 
             Set<String> requiredModules = new HashSet<>();
@@ -456,6 +457,9 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
     }
 
     private void analyzeModuleXml(Path root, Path moduleXml, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+
+        ModuleAnalyzer analyzer = new ModuleAnalyzer(moduleXml);
+        this.meta.addTransitiveDependencies(analyzer.getDependencies());
         Path modulePath = root.relativize(moduleXml).getParent();
 
 
@@ -534,4 +538,5 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
     private Set<Artifact> allArtifacts = new HashSet<>();
 
+    private FractionMetadata meta;
 }
