@@ -120,8 +120,10 @@ public class FractionRegistry {
                 try (FileReader reader = new FileReader(manifest.toFile())) {
                     Map<String, ?> result = (Map<String, ?>) yaml.load(reader);
                     List<String> transitiveDeps = (List<String>) result.get("transitive-dependencies");
-                    for (String each : transitiveDeps) {
-                        meta.addTransitiveDependency(DependencyMetadata.fromString(each));
+                    if (transitiveDeps != null) {
+                        for (String each : transitiveDeps) {
+                            meta.addTransitiveDependency(DependencyMetadata.fromString(each));
+                        }
                     }
                 } catch (IOException e) {
                     e.printStackTrace();
