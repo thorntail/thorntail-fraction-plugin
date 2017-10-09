@@ -28,9 +28,10 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -93,9 +94,21 @@ public class LicenseMojo extends RepositoryBuilderMojo {
             pomPaths.forEach(p -> convertPomToDependency(p, dependencies::add));
             jarPaths.forEach(j -> convertJarToDependency(j, dependencies::add));
 
+            // Process dependencies - handle duplicities, sort by groupId and artifactId
+            Map<String, Dependency> uniqueMap = new HashMap<>();
+            for (Dependency dependency : dependencies) {
+                String groupArtifactType = dependency.groupArtifactType();
+                Dependency existing = uniqueMap.putIfAbsent(groupArtifactType, dependency);
+                if (existing != null && dependency.hasHigherPriority(existing)) {
+                    uniqueMap.put(groupArtifactType, dependency);
+                }
+            }
+            List<Dependency> sorted = new ArrayList<>(uniqueMap.values());
+            sorted.sort(LicenseMojo::compareDependencies);
+
             // Use dependency list to create a new pom.xml in temporary project
             File licensePomFile = getLicensePomFile();
-            createLicensePom(dependencies, licensePomFile);
+            createLicensePom(sorted, licensePomFile);
 
             // Run Maven build to update license information
             executeLicenseProject(licensePomFile, repoDir);
@@ -383,6 +396,14 @@ public class LicenseMojo extends RepositoryBuilderMojo {
         return packagingExpression;
     }
 
+    private static int compareDependencies(Dependency d1, Dependency d2) {
+        int result = d1.groupId.compareTo(d2.groupId);
+        if (result == 0) {
+            result = d1.artifactId.compareTo(d2.artifactId);
+        }
+        return result;
+    }
+
     /**
      * List of regular expressions used to exclude files from the repository. Only the part relative to the repo is matched for a file path, e.g.
      * <code>org/jboss/weld/se/weld-se-core/2.3.5.Final/weld-se-core-2.3.5.Final.jar</code>.
@@ -411,50 +432,5 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     private XPathExpression packagingExpression;
 
     private DocumentBuilder documentBuilder;
-
-    class Dependency {
-
-        // Also exclude all transitive dependencies
-        private static final String POM_FORMAT = "<dependency><groupId>%s</groupId><artifactId>%s</artifactId><version>%s</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions><type>%s</type></dependency>";
-
-        String groupId;
-
-        String artifactId;
-
-        String version;
-
-        String packaging = "jar";
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            Dependency that = (Dependency) o;
-            return Objects.equals(groupId, that.groupId) && Objects.equals(artifactId, that.artifactId) && Objects.equals(version, that.version);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(groupId, artifactId, version);
-        }
-
-        @Override
-        public String toString() {
-            return groupId + ':' + artifactId + ':' + packaging + ':' + version;
-        }
-
-        String asPomElement() {
-            return String.format(POM_FORMAT, groupId, artifactId, version, packaging);
-        }
-
-        boolean isComplete() {
-            return groupId != null && artifactId != null && version != null && packaging != null;
-        }
-
-    }
 
 }

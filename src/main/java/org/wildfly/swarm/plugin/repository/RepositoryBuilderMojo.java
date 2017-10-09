@@ -146,8 +146,12 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         return Boolean.parseBoolean(removeCommunity);
     }
 
-    protected boolean isProductizedArtifact(Path file) {
-        return file.toString().contains("redhat-");
+    protected static boolean isProductizedArtifact(Path file) {
+        return isProductizedArtifact(file.toString());
+    }
+
+    protected static boolean isProductizedArtifact(String name) {
+        return name.contains("redhat-");
     }
 
     private static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
