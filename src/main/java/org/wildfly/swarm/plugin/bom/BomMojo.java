@@ -78,6 +78,7 @@ public class BomMojo extends AbstractFractionsMojo {
         }
 
         List<DependencyMetadata> bomItems = new ArrayList<>();
+        bomItems.add(new DependencyMetadata("org.wildfly.swarm", "fraction-metadata", this.project.getVersion(), null, "jar", "compile"));
         bomItems.addAll(fractions);
         bomItems.addAll(FractionRegistry.INSTANCE.bomInclusions());
         if (!this.product) {
