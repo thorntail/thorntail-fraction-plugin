@@ -91,6 +91,14 @@ public class LicenseMojo extends RepositoryBuilderMojo {
             // Process poms and jars to retrieve artifact details
             List<Dependency> dependencies = new ArrayList<>();
 
+            // Explicitly add current BOM as a dependency for license generation
+            Dependency bomDep = new Dependency();
+            bomDep.groupId = this.project.getGroupId();
+            bomDep.artifactId = this.project.getArtifactId();
+            bomDep.version = this.project.getVersion();
+            bomDep.packaging = "pom";
+            dependencies.add(bomDep);
+
             pomPaths.forEach(p -> convertPomToDependency(p, dependencies::add));
             jarPaths.forEach(j -> convertJarToDependency(j, dependencies::add));
 
