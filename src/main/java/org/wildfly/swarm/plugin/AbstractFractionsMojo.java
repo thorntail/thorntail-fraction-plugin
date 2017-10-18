@@ -52,6 +52,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
             PROBABLE_FRACTIONS = mavenSession.getAllProjects()
                     .stream()
                     .filter(this::isNotArquillianArtifact)
+                    .filter(this::isNotHowto)
                     .collect(Collectors.toList());
 
             if (PROBABLE_FRACTIONS.size() < 10) {
@@ -104,6 +105,10 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
 
     private boolean isNotArquillianArtifact(MavenProject project) {
         return !project.getArtifactId().contains("arquillian");
+    }
+
+    private boolean isNotHowto(MavenProject project) {
+        return !project.getArtifactId().contains("howto");
     }
 
     protected boolean isNotArquillianArtifact(ProjectBuildingResult result) {
