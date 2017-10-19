@@ -78,13 +78,56 @@ public class FractionReferenceMojo extends AbstractFractionsMojo {
         Path output = this.project.getBasedir().toPath().resolve("index.adoc");
 
         try (PrintStream writer = new PrintStream(new FileOutputStream(output.toFile()))) {
-            allFractions.stream()
-                    .sorted(Comparator.comparing(FractionMetadata::getName))
-                    .forEach(fraction -> {
-                        writer.println("include::fractions/" + fraction.getArtifactId() + ".adoc[]");
-                        writer.println();
-                    });
+            List<FractionMetadata> fractions = new ArrayList<>();
+            fractions.addAll(allFractions);
+
+            Collections.sort(fractions,
+                             Comparator.comparing(l -> simplifyName(l.getArtifactId())));
+
+            String[] previousParts = null;
+            int previousOffset = 0;
+
+            for (FractionMetadata fraction : fractions) {
+                String[] parts = simplifyName(fraction.getArtifactId()).split("-");
+                int offset = determineOffset(previousParts, previousOffset, parts);
+                writer.println("include::fractions/" + fraction.getArtifactId() + ".adoc[leveloffset=+" + offset + "]");
+                writer.println();
+
+                previousParts = parts;
+                previousOffset = offset;
+            }
         }
+    }
+
+    protected int determineOffset(String[] previousParts, int previousOffset, String[] parts) {
+        if (previousParts == null) {
+            return 0;
+        }
+
+        if (parts.length == previousParts.length) {
+            return previousOffset;
+        }
+
+        int offset = 0;
+        for (int i = 0; i < parts.length; ++i) {
+            if (previousParts.length > i) {
+                if (parts[i].equals(previousParts[i])) {
+                    ++offset;
+                }
+            } else {
+                break;
+            }
+        }
+
+        return offset;
+    }
+
+    protected String simplifyName(String name) {
+        // damnit Camel
+        if (name.endsWith("-core")) {
+            return name.substring(0, name.length() - 5);
+        }
+        return name;
     }
 
     private void generateReference(FractionMetadata fraction) throws ArtifactResolutionException, IOException {
@@ -106,12 +149,13 @@ public class FractionReferenceMojo extends AbstractFractionsMojo {
                         readmeStream.lines().forEach(writer::println);
                     }
                 } else {
-                    writer.println("# " + fraction.getName());
+                    writer.println("= " + fraction.getName());
                 }
                 writer.println();
 
-                writer.println("## Coordinates");
+                //writer.println("== Coordinates");
                 writer.println();
+                writer.println(".Maven Coordinates");
                 writer.println("[source,xml]");
                 writer.println("----");
                 writer.println("<dependency>");
@@ -123,22 +167,27 @@ public class FractionReferenceMojo extends AbstractFractionsMojo {
 
                 ZipEntry ref = jar.getEntry("META-INF/configuration-meta.properties");
                 if (ref != null) {
-                    writer.println("## Configuration");
-                    writer.println();
                     Properties props = new Properties();
-                    props.load(jar.getInputStream(ref));
-                    List<String> names = new ArrayList<>();
-                    names.addAll(props.stringPropertyNames());
-                    Collections.sort(names);
+                    props.remove("fraction");
+                    if (props.size() > 0) {
+                        writer.println("== Configuration");
+                        writer.println();
+                        props.load(jar.getInputStream(ref));
+                        List<String> names = new ArrayList<>();
+                        names.addAll(props.stringPropertyNames());
+                        Collections.sort(names);
 
-                    names.forEach(name -> {
-                        if (!name.equals("fraction")) {
-                            writer.println(name.replace("*", "_KEY_") + ":: ");
-                            writer.println(props.getProperty(name));
-                            writer.println();
-                        }
-                    });
+                        names.forEach(name -> {
+                            if (!name.equals("fraction")) {
+                                writer.println(name.replace("*", "_KEY_") + ":: ");
+                                writer.println(props.getProperty(name));
+                                writer.println();
+                            }
+                        });
+                    }
                 }
+
+                writer.println();
             }
         }
     }
