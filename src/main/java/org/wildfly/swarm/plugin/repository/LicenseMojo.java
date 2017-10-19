@@ -91,13 +91,7 @@ public class LicenseMojo extends RepositoryBuilderMojo {
             // Process poms and jars to retrieve artifact details
             List<Dependency> dependencies = new ArrayList<>();
 
-            // Explicitly add current BOM as a dependency for license generation
-            Dependency bomDep = new Dependency();
-            bomDep.groupId = this.project.getGroupId();
-            bomDep.artifactId = this.project.getArtifactId();
-            bomDep.version = this.project.getVersion();
-            bomDep.packaging = "pom";
-            dependencies.add(bomDep);
+            addBomDependencies(dependencies);
 
             pomPaths.forEach(p -> convertPomToDependency(p, dependencies::add));
             jarPaths.forEach(j -> convertJarToDependency(j, dependencies::add));
@@ -123,6 +117,26 @@ public class LicenseMojo extends RepositoryBuilderMojo {
 
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
+        }
+    }
+
+    private void addBomDependencies(List<Dependency> dependencies) {
+        // Explicitly add current BOM as a dependency for license generation
+        Dependency bomDep = new Dependency();
+        bomDep.groupId = this.project.getGroupId();
+        bomDep.artifactId = this.project.getArtifactId();
+        bomDep.version = this.project.getVersion();
+        bomDep.packaging = "pom";
+        dependencies.add(bomDep);
+
+        // Add bom-certified if product build
+        if (isRemoveCommunity()) {
+            Dependency bomCertified = new Dependency();
+            bomCertified.groupId = this.project.getGroupId();
+            bomCertified.artifactId = "bom-certified";
+            bomCertified.version = this.project.getVersion();
+            bomCertified.packaging = "pom";
+            dependencies.add(bomCertified);
         }
     }
 
