@@ -168,11 +168,11 @@ public class FractionReferenceMojo extends AbstractFractionsMojo {
                 ZipEntry ref = jar.getEntry("META-INF/configuration-meta.properties");
                 if (ref != null) {
                     Properties props = new Properties();
+                    props.load(jar.getInputStream(ref));
                     props.remove("fraction");
                     if (props.size() > 0) {
                         writer.println("== Configuration");
                         writer.println();
-                        props.load(jar.getInputStream(ref));
                         List<String> names = new ArrayList<>();
                         names.addAll(props.stringPropertyNames());
                         Collections.sort(names);
