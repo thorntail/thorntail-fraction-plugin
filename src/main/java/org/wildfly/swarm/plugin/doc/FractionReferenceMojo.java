@@ -171,7 +171,7 @@ public class FractionReferenceMojo extends AbstractFractionsMojo {
                     props.load(jar.getInputStream(ref));
                     props.remove("fraction");
                     if (props.size() > 0) {
-                        writer.println("== Configuration");
+                        writer.println(".Configuration");
                         writer.println();
                         List<String> names = new ArrayList<>();
                         names.addAll(props.stringPropertyNames());
