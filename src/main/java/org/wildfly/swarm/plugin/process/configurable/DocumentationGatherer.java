@@ -39,7 +39,7 @@ public abstract class DocumentationGatherer {
         return this.index.getClassByName(name);
     }
 
-    protected String dashize(String name) {
+    protected static String dashize(String name) {
         int numChars = name.length();
 
         StringBuilder str = new StringBuilder();
@@ -146,7 +146,7 @@ public abstract class DocumentationGatherer {
         }
 
         String name = fraction.name().local();
-        return "swarm." + name.replace("Fraction", "").toLowerCase();
+        return "swarm." + dashize(name.replace("Fraction", "")).toLowerCase();
     }
 
     public abstract void gather();
