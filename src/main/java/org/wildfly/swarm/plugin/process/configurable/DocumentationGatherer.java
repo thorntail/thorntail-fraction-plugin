@@ -45,20 +45,30 @@ public abstract class DocumentationGatherer {
             // dashize if mixed-case.
             return name;
         }
+
         int numChars = name.length();
 
         StringBuilder str = new StringBuilder();
+
+        boolean previousWasUppercase = false;
 
         for (int i = 0; i < numChars; ++i) {
             char c = name.charAt(i);
 
             if (i == 0) {
                 str.append(c);
+                previousWasUppercase = true;
             } else if (Character.isUpperCase(c)) {
-                str.append("-");
-                str.append(Character.toLowerCase(c));
+                if (!previousWasUppercase) {
+                    str.append("-");
+                    str.append(Character.toLowerCase(c));
+                    previousWasUppercase = true;
+                } else {
+                    str.append(c);
+                }
             } else {
                 str.append(c);
+                previousWasUppercase = false;
             }
         }
 
