@@ -40,6 +40,11 @@ public abstract class DocumentationGatherer {
     }
 
     protected static String dashize(String name) {
+        if (name.toUpperCase().equals(name)) {
+            // if it's all uppercase (IO, JCA, JPA) then don't dashize; only
+            // dashize if mixed-case.
+            return name;
+        }
         int numChars = name.length();
 
         StringBuilder str = new StringBuilder();
