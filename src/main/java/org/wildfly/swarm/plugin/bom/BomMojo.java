@@ -54,7 +54,10 @@ public class BomMojo extends AbstractFractionsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        Set<FractionMetadata> allFractions = fractions();
+        Set<FractionMetadata> allFractions = fractions()
+                .stream()
+                .filter(f -> !f.isInternal())
+                .collect(Collectors.toSet());
 
         Collection<FractionMetadata> fractions = null;
 
