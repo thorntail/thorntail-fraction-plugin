@@ -3,15 +3,19 @@ package org.wildfly.swarm.plugin.repository;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import org.apache.maven.plugin.MojoExecutionException;
@@ -53,25 +57,59 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
             // Load project dependencies into local M2 repo
             executeGeneratedProjectBuild(repoPomFile, projectDir, repoDir);
 
+            if (isAnalyzeRuntimeDependencies()) {
+                generateRuntimeDependenciesDescriptor();
+            }
+
             // Clear out unnecessary files from local M2 repo
             santizeRepo(repoDir.toPath());
 
             if (generateZip) {
-                // Zip local M2 repo
-                File repoZip = new File(this.project.getBuild().getDirectory(), this.project.getArtifactId() + "-" + this.project.getVersion() + ".zip");
-
-                try (FileOutputStream fos = new FileOutputStream(repoZip);
-                     ZipOutputStream zipOut = new ZipOutputStream(fos)) {
-                    zipFile(repoDir, repoDir.getName(), zipOut);
-                }
-
-                // Attach zip of M2 repo to Maven Project
-                projectHelper.attachArtifact(this.project, "zip", repoZip);
-                getLog().info("Attached M2 Repo zip as project artifact.");
+                generateRepositoryZip();
             }
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
+    }
+
+    private void generateRuntimeDependenciesDescriptor() throws MojoExecutionException, IOException {
+        File projectTargetDir = new File(projectDir, "target");
+        String[] swarmJars = projectTargetDir.list((dir, name) -> name.endsWith("-swarm.jar"));
+        if (swarmJars.length != 1) {
+            throw new MojoExecutionException("Invalid number of -swarm.jar's generated. " +
+                    "Expecting 1 jar, found: " + Arrays.toString(swarmJars));
+        }
+        File jar = new File(projectTargetDir, swarmJars[0]);
+        ZipFile jarAsZipFile = new ZipFile(jar);
+        String m2repoContentsList =
+                Collections.list(jarAsZipFile.entries())
+                        .stream()
+                        .filter(zipEntry -> !zipEntry.isDirectory())
+                        .map(ZipEntry::getName)
+                        .filter(name -> name.startsWith(M2REPO))
+                        .map(name -> name.substring(M2REPO.length()))
+                        .collect(Collectors.joining("\n"));
+        File m2ContentsDecriptor =
+                new File(this.project.getBuild().getDirectory(), this.project.getArtifactId() + "-" + this.project.getVersion() + ".txt");
+        try (FileWriter writer = new FileWriter(m2ContentsDecriptor)) {
+            writer.write(m2repoContentsList);
+        }
+
+        projectHelper.attachArtifact(this.project, "txt", "runtime-dependencies", m2ContentsDecriptor);
+    }
+
+    private void generateRepositoryZip() throws IOException {
+        // Zip local M2 repo
+        File repoZip = new File(this.project.getBuild().getDirectory(), this.project.getArtifactId() + "-" + this.project.getVersion() + ".zip");
+
+        try (FileOutputStream fos = new FileOutputStream(repoZip);
+             ZipOutputStream zipOut = new ZipOutputStream(fos)) {
+            zipFile(repoDir, repoDir.getName(), zipOut);
+        }
+
+        // Attach zip of M2 repo to Maven Project
+        projectHelper.attachArtifact(this.project, "zip", repoZip);
+        getLog().info("Attached M2 Repo zip as project artifact.");
     }
 
     private void executeGeneratedProjectBuild(File pomFile, File projectDir, File repoDir) throws Exception {
@@ -146,6 +184,10 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         return Boolean.parseBoolean(removeCommunity);
     }
 
+    protected boolean isAnalyzeRuntimeDependencies() {
+        return Boolean.parseBoolean(analyzeRuntimeDependencies);
+    }
+
     protected static boolean isProductizedArtifact(Path file) {
         return isProductizedArtifact(file.toString());
     }
@@ -193,7 +235,12 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
     @Parameter(defaultValue = "false")
     private String removeCommunity;
 
+    @Parameter(defaultValue = "false")
+    protected String analyzeRuntimeDependencies;
+
     boolean generateZip = true;
 
     File repoDir;
+
+    public static final String M2REPO = "m2repo/";
 }
