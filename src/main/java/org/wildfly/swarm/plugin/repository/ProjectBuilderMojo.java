@@ -35,11 +35,7 @@ public class ProjectBuilderMojo extends AbstractFractionsMojo {
 
             if (pomFile == null || !pomFile.canRead()) {
                 // There is no pom.xml specified - generate one from BOM
-                final File bomFile = new File(this.project.getBuild().getOutputDirectory(), "bom.pom");
-
-                if (!bomFile.exists()) {
-                    throw new MojoFailureException("No bom.pom file find in target directory. Please add `generate-bom` goal of fraction-plugin to project.");
-                }
+                final File bomFile = getBomFile();
                 if (!template.exists()) {
                     throw new MojoFailureException("Unable to proceed without a `template` specified for generating a project pom.xml.");
                 }
@@ -59,6 +55,15 @@ public class ProjectBuilderMojo extends AbstractFractionsMojo {
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
+    }
+
+    protected File getBomFile() throws MojoFailureException {
+        final File bomFile = new File(this.project.getBuild().getOutputDirectory(), "bom.pom");
+
+        if (!bomFile.exists()) {
+            throw new MojoFailureException("No bom.pom file find in target directory. Please add `generate-bom` goal of fraction-plugin to project.");
+        }
+        return bomFile;
     }
 
     @Parameter

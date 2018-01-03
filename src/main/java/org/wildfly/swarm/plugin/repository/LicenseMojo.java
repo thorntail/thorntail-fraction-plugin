@@ -76,7 +76,7 @@ public class LicenseMojo extends RepositoryBuilderMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         // When executing in license mode only, we don't want to generate the repository zip or attach it to artifacts to be installed
-        this.generateZip = false;
+        this.defaultGenerateZip = false;
 
         // Execute parent Mojo that will generate project from bom
         super.execute();
