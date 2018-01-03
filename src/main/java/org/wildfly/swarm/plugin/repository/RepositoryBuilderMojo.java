@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +32,7 @@ import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
 import org.apache.maven.shared.invoker.InvocationResult;
 import org.apache.maven.shared.invoker.Invoker;
+import org.codehaus.plexus.util.FileUtils;
 
 /**
  * @author Ken Finnigan
@@ -61,15 +64,22 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
                 generateRuntimeDependenciesDescriptor();
             }
 
+            addBom();
             // Clear out unnecessary files from local M2 repo
             santizeRepo(repoDir.toPath());
 
-            if (generateZip) {
+            if (shouldGenerateZip()) {
                 generateRepositoryZip();
             }
         } catch (Exception e) {
             throw new MojoExecutionException(e.getMessage(), e);
         }
+    }
+
+    protected boolean shouldGenerateZip() {
+        return generateZip == null || generateZip.trim().isEmpty()
+                ? defaultGenerateZip
+                : Boolean.parseBoolean(generateZip);
     }
 
     private void generateRuntimeDependenciesDescriptor() throws MojoExecutionException, IOException {
@@ -108,7 +118,7 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         }
 
         // Attach zip of M2 repo to Maven Project
-        projectHelper.attachArtifact(this.project, "zip", repoZip);
+        projectHelper.attachArtifact(this.project, "zip", "maven-repository", repoZip);
         getLog().info("Attached M2 Repo zip as project artifact.");
     }
 
@@ -142,6 +152,24 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         getLog().info("Built project from BOM: " + projectDir.getAbsolutePath());
     }
 
+    private void addBom() throws MojoFailureException, IOException {
+        getLog().info("Add the bom to the repository");
+
+        String[] groupIdParts = project.getGroupId().split("\\.");
+
+        FileSystem fs = FileSystems.getDefault();
+        Path groupIdDir = fs.getPath(repoDir.getAbsolutePath(), groupIdParts);
+        Path targetDir = fs.getPath(groupIdDir.toString(), project.getArtifactId(), project.getVersion());
+        String fileName = String.format("%s-%s.%s",
+                project.getArtifactId(), project.getVersion(), "pom"
+        );
+
+        File targetFile = new File(targetDir.toFile(), fileName);
+
+        FileUtils.copyFile(getBomFile(), targetFile);
+        getLog().info("Copied the bom to " + targetFile.getAbsolutePath());
+    }
+
     private void santizeRepo(Path repoDirPath) throws IOException {
         getLog().info("Remove unneeded files from local M2 Repo, " + repoDirPath.toAbsolutePath());
 
@@ -150,7 +178,8 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                // If we need to prune communtiy artifacts, ie those from Central, then remove from repository
+
+                // If we need to prune community artifacts, ie those from Central, then remove from repository
                 if (!pruneDirectory && isRemoveCommunity() && !isProductizedArtifact(file) && !isUnneeded(file)) {
                     pruneDirectory = true;
                 }
@@ -238,7 +267,10 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
     @Parameter(defaultValue = "false")
     protected String analyzeRuntimeDependencies;
 
-    boolean generateZip = true;
+    @Parameter
+    protected String generateZip;
+
+    boolean defaultGenerateZip = true;
 
     File repoDir;
 
