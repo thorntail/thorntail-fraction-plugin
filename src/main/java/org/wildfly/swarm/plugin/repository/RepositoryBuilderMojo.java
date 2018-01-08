@@ -222,7 +222,7 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
     }
 
     protected static boolean isProductizedArtifact(String name) {
-        return name.contains("redhat-");
+        return name.contains("redhat-") || name.contains("eap-runtime-artifacts");
     }
 
     private static void zipFile(File fileToZip, String fileName, ZipOutputStream zipOut) throws IOException {
