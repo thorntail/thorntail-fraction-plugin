@@ -40,7 +40,7 @@ public class ProjectBuilderMojo extends AbstractFractionsMojo {
                     throw new MojoFailureException("Unable to proceed without a `template` specified for generating a project pom.xml.");
                 }
 
-                repoPomFile = BomProjectBuilder.generateProject(projectDir, bomFile, template);
+                repoPomFile = BomProjectBuilder.generateProject(projectDir, bomFile, template, project);
                 if (!repoPomFile.exists()) {
                     throw new MojoFailureException("Failed to create project pom.xml");
                 }

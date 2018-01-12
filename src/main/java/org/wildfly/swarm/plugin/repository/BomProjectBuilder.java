@@ -1,5 +1,7 @@
 package org.wildfly.swarm.plugin.repository;
 
+import org.apache.maven.project.MavenProject;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -15,31 +17,40 @@ import static org.wildfly.swarm.plugin.repository.PomUtils.extract;
  */
 class BomProjectBuilder {
 
+
     private static final String DEPENDENCIES_PLACEHOLDER = "FRACTIONS_FROM_BOM";
 
     private static final String PROPERTIES = "PROPERTIES";
 
     private static final String SWARM_VERSION = "SWARM_VERSION";
 
+    private static final String BOM_GROUPID = "BOM_GROUPID";
     private static final String BOM_ARTIFACT = "BOM_ARTIFACT";
 
     private BomProjectBuilder() {
     }
 
-    static File generateProject(final File generatedProjectDir, final File bomFile, final File projectTemplate) throws Exception {
-        return preparePom(bomFile, generatedProjectDir, projectTemplate);
+    static File generateProject(final File generatedProjectDir,
+                                final File bomFile,
+                                final File projectTemplate,
+                                final MavenProject bomProject) throws Exception {
+        return preparePom(bomFile, generatedProjectDir, projectTemplate, bomProject);
     }
 
-    private static File preparePom(File bomFile, File generatedProject, File projectTemplate) throws Exception {
+    private static File preparePom(File bomFile,
+                                   File generatedProject,
+                                   File projectTemplate,
+                                   MavenProject bomProject) throws Exception {
         String dependencies = extract(bomFile, "//dependencyManagement/dependencies/*")
                 .skipping("dependency-bom", "shrinkwrap")
                 .asString();
         String properties = extract(bomFile, "//properties/*").asString();
-        String swarmVersion = extract(bomFile, "/project/version/text()").asString();
         String pomContent = readTemplate(projectTemplate)
                 .replace(DEPENDENCIES_PLACEHOLDER, dependencies)
                 .replace(PROPERTIES, properties)
-                .replace(SWARM_VERSION, swarmVersion);
+                .replace(SWARM_VERSION, bomProject.getVersion())
+                .replace(BOM_GROUPID, bomProject.getGroupId())
+                .replace(BOM_ARTIFACT, bomProject.getArtifactId());
         File pom = new File(generatedProject, "pom.xml");
         pom.createNewFile();
         try (FileWriter writer = new FileWriter(pom)) {
