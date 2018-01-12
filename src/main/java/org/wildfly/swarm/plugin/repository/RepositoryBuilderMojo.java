@@ -57,6 +57,8 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
                 }
             }
 
+            addBom();
+
             // Load project dependencies into local M2 repo
             executeGeneratedProjectBuild(repoPomFile, projectDir, repoDir);
 
@@ -64,7 +66,6 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
                 generateRuntimeDependenciesDescriptor();
             }
 
-            addBom();
             // Clear out unnecessary files from local M2 repo
             santizeRepo(repoDir.toPath());
 
