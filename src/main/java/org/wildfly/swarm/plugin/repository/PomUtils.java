@@ -66,8 +66,10 @@ class PomUtils {
             this.nodeList = nodeList;
         }
 
-        XmlToString skipping(String... expression) {
-            expressionsToSkip.addAll(Arrays.asList(expression));
+        XmlToString skipping(String... expressions) {
+            if (expressions != null) {
+                expressionsToSkip.addAll(Arrays.asList(expressions));
+            }
             return this;
         }
 

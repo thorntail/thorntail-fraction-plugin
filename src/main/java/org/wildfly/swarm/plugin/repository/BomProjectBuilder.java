@@ -1,6 +1,6 @@
 package org.wildfly.swarm.plugin.repository;
 
-import org.apache.maven.project.MavenProject;
+import static org.wildfly.swarm.plugin.repository.PomUtils.extract;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,14 +9,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-import static org.wildfly.swarm.plugin.repository.PomUtils.extract;
+import org.apache.maven.project.MavenProject;
 
 /**
  * @author Michal Szynkiewicz, michal.l.szynkiewicz@gmail.com
  * @author Ken Finnigan
  */
 class BomProjectBuilder {
-
 
     private static final String DEPENDENCIES_PLACEHOLDER = "FRACTIONS_FROM_BOM";
 
@@ -33,16 +32,18 @@ class BomProjectBuilder {
     static File generateProject(final File generatedProjectDir,
                                 final File bomFile,
                                 final File projectTemplate,
-                                final MavenProject bomProject) throws Exception {
-        return preparePom(bomFile, generatedProjectDir, projectTemplate, bomProject);
+                                final MavenProject bomProject,
+                                final String[] skipBomDependencies) throws Exception {
+        return preparePom(bomFile, generatedProjectDir, projectTemplate, bomProject, skipBomDependencies);
     }
 
     private static File preparePom(File bomFile,
                                    File generatedProject,
                                    File projectTemplate,
-                                   MavenProject bomProject) throws Exception {
+                                   MavenProject bomProject,
+                                   String[] skipBomDependencies) throws Exception {
         String dependencies = extract(bomFile, "//dependencyManagement/dependencies/*")
-                .skipping("dependency-bom", "shrinkwrap")
+                .skipping(skipBomDependencies)
                 .asString();
         String properties = extract(bomFile, "//properties/*").asString();
         String pomContent = readTemplate(projectTemplate)
@@ -70,4 +71,5 @@ class BomProjectBuilder {
         }
         return result.toString();
     }
+
 }
