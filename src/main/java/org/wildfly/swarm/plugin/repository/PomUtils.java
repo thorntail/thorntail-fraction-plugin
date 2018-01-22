@@ -1,11 +1,9 @@
 package org.wildfly.swarm.plugin.repository;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -21,10 +19,18 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Author: Michal Szynkiewicz, michal.l.szynkiewicz@gmail.com
@@ -57,7 +63,22 @@ class PomUtils {
         return (NodeList) expr.evaluate(doc, XPathConstants.NODESET);
     }
 
-    static class XmlToString {
+
+    public static Stream<Node> toStream(final NodeList nodeList) {
+        return new AbstractList<Node>() {
+            @Override
+            public int size() {
+                return nodeList.getLength();
+            }
+
+            @Override
+            public Node get(int index) {
+                return nodeList.item(index);
+            }
+        }.stream();
+    }
+
+    public static class XmlToString {
         private final NodeList nodeList;
 
         private final Set<String> expressionsToSkip = new HashSet<>();
@@ -66,32 +87,48 @@ class PomUtils {
             this.nodeList = nodeList;
         }
 
-        XmlToString skipping(String... expressions) {
+        public XmlToString skipping(String... expressions) {
             if (expressions != null) {
                 expressionsToSkip.addAll(Arrays.asList(expressions));
             }
             return this;
         }
 
-        String asString() throws TransformerException {
-            StringBuilder result = new StringBuilder();
-            Transformer transformer = TransformerFactory.newInstance().newTransformer();
-            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+        public NodeList raw() {
+            return nodeList;
+        }
 
-            for (int i = 0; i < nodeList.getLength(); ++i) {
-                StringWriter writer = new StringWriter();
-                StreamResult streamResult = new StreamResult(writer);
-                DOMSource source = new DOMSource();
-                source.setNode(nodeList.item(i));
-                transformer.transform(source, streamResult);
-                String element = writer.toString();
-                if (expressionsToSkip.stream().noneMatch(element::contains)) {
-                    result.append(element).append("\n");
+        public <T> List<T> translate(BiFunction<Node, String, T> translator) {
+            try {
+                List<T> result = new ArrayList<>();
+
+                Transformer transformer = TransformerFactory.newInstance().newTransformer();
+                transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+
+                for (int i = 0; i < nodeList.getLength(); ++i) {
+                    Node node = nodeList.item(i);
+                    String element = nodeAsString(transformer, node);
+                    if (expressionsToSkip.stream().noneMatch(element::contains)) {
+                        result.add(translator.apply(node, element));
+                    }
                 }
+                return result;
+            } catch (TransformerException e) {
+                throw new RuntimeException("Failure to transform Xml element", e);
             }
+        }
 
-            return result.toString();
+        public String asString() {
+           return translate((node, value) -> value).stream().collect(Collectors.joining("\n"));
+        }
+
+        private static String nodeAsString(Transformer transformer, Node node) throws TransformerException {
+            StringWriter writer = new StringWriter();
+            StreamResult streamResult = new StreamResult(writer);
+            DOMSource source = new DOMSource();
+            source.setNode(node);
+            transformer.transform(source, streamResult);
+            return writer.toString();
         }
     }
-
 }
