@@ -47,6 +47,7 @@ import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 import org.wildfly.swarm.plugin.FractionMetadata;
 import org.wildfly.swarm.plugin.FractionRegistry;
+import org.wildfly.swarm.plugin.RepositoryUtils;
 
 @Mojo(name = "generate-bom",
         defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
@@ -106,15 +107,7 @@ public class BomMojo extends AbstractFractionsMojo {
         project.setFile(bomPath.toFile());
 
         try {
-            List<RemoteRepository> repos = new ArrayList<>();
-            for (ArtifactRepository remoteRepository : this.remoteRepositories) {
-                repos.add(new RemoteRepository.Builder(
-                        remoteRepository.getId(),
-                        "default",
-                        remoteRepository.getUrl()
-                ).build());
-
-            }
+            List<RemoteRepository> repos = RepositoryUtils.prepareRepositories(this.remoteRepositories);
 
             final Path m2Repo = Paths.get(this.project.getBuild().getDirectory(), "m2repo");
             Files.createDirectories(m2Repo);
