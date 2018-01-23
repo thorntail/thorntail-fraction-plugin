@@ -52,7 +52,7 @@ public class XmlDependencyElement {
     }
 
     public boolean isNotImportScoped() {
-        return "import".equals(scope);
+        return !"import".equals(scope);
     }
 
     public String getElementAsString() {
