@@ -303,7 +303,18 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                     name = name.replace("?jandex", "");
                 }
 
-                final Artifact artifact = artifacts.get(name);
+                Artifact artifact = artifacts.get(name);
+                if (artifact == null) {
+                    String[] parts = name.split(":");
+
+                    if (parts.length == 3) {
+                        artifacts.put(name, artifact = new DefaultArtifact(parts[0], parts[1], "jar", parts[2]));
+                    } else if (parts.length == 5) {
+                        artifacts.put(name, artifact = new DefaultArtifact(parts[0], parts[1], parts[3], parts[2], parts[4]));
+                    } else {
+                        throw new RuntimeException("Could not resolve module artifact " + name);
+                    }
+                }
                 moduleArtifact.name(toModuleArtifactName(artifact));
 
                 this.allArtifacts.add(artifact);
