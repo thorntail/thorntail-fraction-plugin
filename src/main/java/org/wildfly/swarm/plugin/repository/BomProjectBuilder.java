@@ -8,9 +8,9 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.wildfly.swarm.plugin.repository.PomUtils.extract;
 
@@ -19,6 +19,8 @@ import static org.wildfly.swarm.plugin.repository.PomUtils.extract;
  * @author Ken Finnigan
  */
 class BomProjectBuilder {
+
+    private static final String BOMS = "BOMS";
 
     private static final String DEPENDENCIES_PLACEHOLDER = "FRACTIONS_FROM_BOM";
 
@@ -34,38 +36,23 @@ class BomProjectBuilder {
     }
 
     static File generateProject(final File generatedProject,
-                                final File bomFile,
                                 final File projectTemplate,
                                 final MavenProject bomProject,
-                                final String[] skipBomDependencies,
-                                final File additionalBom) throws Exception {
+                                final File[] bomFiles) throws Exception {
 
+        String properties = extract(bomFiles[0], "//properties/*").asString();
 
-        String properties = extract(bomFile, "//properties/*").asString();
+        String bomsAsString = Stream.of(bomFiles)
+                .map(file -> BomProjectBuilder.createPomImportXml(file, bomProject.getVersion()))
+                .collect(Collectors.joining(NEWLINE));
 
-        List<XmlDependencyElement> dependencies = getDependencies(bomFile, skipBomDependencies);
-
-        List<XmlDependencyElement> additionalDependencies = Collections.emptyList();
-        if (additionalBom != null) {
-            additionalDependencies = getDependencies(additionalBom, skipBomDependencies)
-                    .stream()
-                    .filter(XmlDependencyElement::isNotImportScoped)
-                    .collect(Collectors.toList());
-        }
-
-        additionalDependencies.removeAll(dependencies);
-
-        String bomDependenciesAsString = dependencies.stream()
+        String dependenciesAsString = Stream.of(bomFiles)
+                .flatMap(file -> getDependencies(file).stream())
                 .map(XmlDependencyElement::getElementAsString)
                 .collect(Collectors.joining(NEWLINE));
 
-        String additionalBomDependenciesAsString = additionalDependencies.stream()
-                .map(element -> element.toDependencyWithScope("test"))
-                .collect(Collectors.joining(NEWLINE));
-
-        String dependenciesAsString = bomDependenciesAsString + NEWLINE + additionalBomDependenciesAsString;
-
         String pomContent = readTemplate(projectTemplate)
+                .replace(BOMS, bomsAsString)
                 .replace(DEPENDENCIES_PLACEHOLDER, dependenciesAsString)
                 .replace(PROPERTIES, properties)
                 .replace(SWARM_VERSION, bomProject.getVersion())
@@ -79,10 +66,25 @@ class BomProjectBuilder {
         return pom;
     }
 
-    private static List<XmlDependencyElement> getDependencies(File additionalBom, String... expressionsToSkip) {
+
+    private static String createPomImportXml(File file, String version) {
+        String groupId = extract(file, "/project/groupId").asString();
+        String projectId = extract(file, "/project/artifactId").asString();
+        return String.format(
+                "<dependency>\n" +
+                        "        %s\n" +
+                        "        %s\n" +
+                        "        <version>%s</version>\n" +
+                        "        <scope>import</scope>\n" +
+                        "        <type>pom</type>\n" +
+                        "      </dependency>",
+                groupId, projectId, version
+        );
+    }
+
+    private static List<XmlDependencyElement> getDependencies(File additionalBom) {
         PomUtils.XmlToString result =
-                PomUtils.extract(additionalBom, "//dependencyManagement/dependencies/*")
-                        .skipping(expressionsToSkip);
+                PomUtils.extract(additionalBom, "//dependencyManagement/dependencies/*");
 
         return result.translate(XmlDependencyElement::fromNode);
     }

@@ -14,12 +14,14 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Component;
@@ -33,20 +35,41 @@ import org.apache.maven.shared.invoker.InvocationRequest;
 import org.apache.maven.shared.invoker.InvocationResult;
 import org.apache.maven.shared.invoker.Invoker;
 import org.codehaus.plexus.util.FileUtils;
+import org.codehaus.plexus.util.StringUtils;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.impl.ArtifactResolver;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
+import org.wildfly.swarm.plugin.AbstractFractionsMojo;
+import org.wildfly.swarm.plugin.RepositoryUtils;
+
+import javax.inject.Inject;
 
 /**
  * @author Ken Finnigan
  */
 @Mojo(name = "build-repository",
         defaultPhase = LifecyclePhase.PREPARE_PACKAGE)
-public class RepositoryBuilderMojo extends ProjectBuilderMojo {
+public class RepositoryBuilderMojo extends AbstractFractionsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-
-        // Execute parent Mojo that will eventually generate project from bom
-        super.execute();
-
+        ProjectBuilder projectBuilder = new ProjectBuilder(project, getLog(), template);
+        /*
+                1. build repository for bom
+                    - generate project for bom contents only
+                    - build the project
+                    - prepare runtime artifacts analysis for it
+                    - save the original repo zip contents
+                2. add repo artifacts from additional bom
+                    - generate project for bom + additional bom
+                    - build the project pointing to the same local repo
+                3. create the repo zip
+        */
         try {
             repoDir = new File(this.project.getBuild().getDirectory(), "repository");
             if (!repoDir.mkdirs()) {
@@ -59,11 +82,18 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
 
             addBom();
 
-            // Load project dependencies into local M2 repo
-            executeGeneratedProjectBuild(repoPomFile, projectDir, repoDir);
+            File currentBom = getBomFile();
+            File currentBomProject = projectBuilder.generateProject(currentBom);
+
+            executeGeneratedProjectBuild(currentBomProject, repoDir);
 
             if (isAnalyzeRuntimeDependencies()) {
-                generateRuntimeDependenciesDescriptor();
+                generateRuntimeDependenciesDescriptor(currentBomProject);
+            }
+
+            if (StringUtils.isNotBlank(additionalBom)) {
+                File currentAndAdditionalBomProject = projectBuilder.generateProject(currentBom, getPom(additionalBom));
+                executeGeneratedProjectBuild(currentAndAdditionalBomProject, repoDir);
             }
 
             // Clear out unnecessary files from local M2 repo
@@ -83,7 +113,33 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
                 : Boolean.parseBoolean(generateZip);
     }
 
-    private void generateRuntimeDependenciesDescriptor() throws MojoExecutionException, IOException {
+
+    public File getPom(String gavString) throws ArtifactResolutionException {
+        String[] gav = gavString.split(":");
+        Artifact additionalBomArtifact = new DefaultArtifact(
+                gav[0],
+                gav[1],
+                null,
+                "pom",
+                gav[3]
+        );
+
+        List<RemoteRepository> repositories = RepositoryUtils.prepareRepositories(remoteRepositories);
+        ArtifactRequest request = new ArtifactRequest(additionalBomArtifact, repositories, null);
+        ArtifactResult result = resolver.resolveArtifact(session, request);
+        return result.getArtifact().getFile();
+    }
+
+    private File getBomFile() throws MojoFailureException {
+        final File bomFile = new File(this.project.getBuild().getOutputDirectory(), "bom.pom");
+
+        if (!bomFile.exists()) {
+            throw new MojoFailureException("No bom.pom file found in target directory. Please add `generate-bom` goal of fraction-plugin to project.");
+        }
+        return bomFile;
+    }
+
+    private void generateRuntimeDependenciesDescriptor(File projectDir) throws MojoExecutionException, IOException {
         File projectTargetDir = new File(projectDir, "target");
         String[] swarmJars = projectTargetDir.list((dir, name) -> name.endsWith("-swarm.jar"));
         if (swarmJars.length != 1) {
@@ -123,9 +179,9 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
         getLog().info("Attached M2 Repo zip as project artifact.");
     }
 
-    private void executeGeneratedProjectBuild(File pomFile, File projectDir, File repoDir) throws Exception {
+    private void executeGeneratedProjectBuild(File projectDir, File repoDir) throws Exception {
         InvocationRequest mavenRequest = new DefaultInvocationRequest();
-        mavenRequest.setPomFile(pomFile);
+        mavenRequest.setPomFile(new File(projectDir, "pom.xml"));
         mavenRequest.setBaseDirectory(projectDir);
         mavenRequest.setUserSettingsFile(userSettings);
         mavenRequest.setLocalRepositoryDirectory(repoDir);
@@ -271,9 +327,24 @@ public class RepositoryBuilderMojo extends ProjectBuilderMojo {
     @Parameter
     protected String generateZip;
 
+    @Parameter(alias = "remoteRepositories", defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
+    protected List<ArtifactRepository> remoteRepositories;
+
+    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
+    protected DefaultRepositorySystemSession session;
+
+    @Parameter
+    private String additionalBom;
+
+    @Parameter
+    private File template;
+
     boolean defaultGenerateZip = true;
 
     File repoDir;
+
+    @Inject
+    private ArtifactResolver resolver;
 
     public static final String M2REPO = "m2repo/";
 }
