@@ -39,7 +39,6 @@ public class XmlDependencyElement {
 
     private String groupId;
     private String artifactId;
-    private String scope;
     private String elementAsString;
 
     static {
@@ -49,10 +48,6 @@ public class XmlDependencyElement {
             throw new IllegalStateException("Cannot create XML transformer", e);
         }
         transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
-    }
-
-    public boolean isNotImportScoped() {
-        return !"import".equals(scope);
     }
 
     public String getElementAsString() {
@@ -65,7 +60,6 @@ public class XmlDependencyElement {
         XmlDependencyElement result = new XmlDependencyElement();
         result.groupId = map.get("groupId");
         result.artifactId = map.get("artifactId");
-        result.scope = map.get("scope");
 
         result.elementAsString = elementAsString;
 
@@ -79,17 +73,6 @@ public class XmlDependencyElement {
                         resultMap.put(node.getNodeName(), node.getTextContent())
                 );
         return resultMap;
-    }
-
-    public String toDependencyWithScope(String scope) {
-        return String.format("<dependency>\n" +
-                        "  <groupId>%s</groupId>\n" +
-                        "  <artifactId>%s</artifactId>\n" +
-                        "  <scope>%s</scope>\n" +
-                        "</dependency>",
-                groupId,
-                artifactId,
-                scope);
     }
 
     @Override
