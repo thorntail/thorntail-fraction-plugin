@@ -44,6 +44,8 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
 
     public static final DotName CONFIGURABLE_ANNOTATION = DotName.createSimple("org.wildfly.swarm.spi.api.annotations.Configurable");
 
+    public static final DotName CONFIGURABLES_ANNOTATION = DotName.createSimple("org.wildfly.swarm.spi.api.annotations.Configurables");
+
     public static final DotName SINGLETON_RESOURCE_ANNOTATION = DotName.createSimple("org.wildfly.swarm.config.runtime.SingletonResource");
 
     public static final DotName ATTRIBUTE_DOCUMENTATION_ANNOTATION = DotName.createSimple("org.wildfly.swarm.config.runtime.AttributeDocumentation");

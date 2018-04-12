@@ -69,11 +69,8 @@ public class ResourceDocumentationGatherer extends DocumentationGatherer {
                 return;
             }
             if (isRootFraction) {
-                String name = this.name + "." + dashize(field.name());
+                String name = isMarkedAsConfigurable(field) ? nameFor(field) : this.name + "." + dashize(field.name());
                 String docs = "(not yet documented)";
-                if (isMarkedAsConfigurable(field)) {
-                    name = nameFor(field);
-                }
                 if (isMarkedAsDocumented(field)) {
                     docs = getDocumentation(field);
                 } else {
