@@ -77,7 +77,7 @@ public abstract class DocumentationGatherer {
 
     protected static boolean isMarkedAsConfigurable(FieldInfo field) {
         for (AnnotationInstance anno : field.annotations()) {
-            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
+            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION) || anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLES_ANNOTATION)) {
                 return true;
             }
         }
@@ -125,28 +125,33 @@ public abstract class DocumentationGatherer {
     }
 
     protected static String nameFor(FieldInfo field) {
-        Collection<AnnotationInstance> annos = field.annotations();
-
-        for (AnnotationInstance anno : annos) {
-            if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
-                if (anno.value() != null) {
-                    return anno.value().asString();
-                }
-            }
-        }
-
         String prefix = nameFor(field.declaringClass());
-
-
-        for (AnnotationInstance anno : annos) {
+        for (AnnotationInstance anno : field.annotations()) {
             if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLE_ANNOTATION)) {
-                if (!anno.value("simpleName").asString().isEmpty()) {
-                    return prefix + "." + anno.value("simpleName").asString();
+                String name = getName(prefix, anno);
+                if (name != null) {
+                    return name;
+                }
+            } else if (anno.name().equals(ConfigurableDocumentationGenerator.CONFIGURABLES_ANNOTATION)) {
+                for (AnnotationInstance nested : anno.value().asNestedArray()) {
+                    String name = getName(prefix, nested);
+                    if (name != null) {
+                        // Only the first annotation declared is used for docs
+                        return name;
+                    }
                 }
             }
         }
-
         return prefix + "." + field.name();
+    }
+
+    private static String getName(String prefix, AnnotationInstance configurable) {
+        if (!configurable.value().asString().isEmpty()) {
+            return configurable.value().asString();
+        } else if (!configurable.value("simpleName").asString().isEmpty()) {
+            return prefix + "." + configurable.value("simpleName").asString();
+        }
+        return null;
     }
 
     protected static String nameFor(ClassInfo fraction) {
