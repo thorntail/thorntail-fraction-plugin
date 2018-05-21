@@ -93,14 +93,14 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected MavenProject findRoot(MavenProject current) {
-        if (current.getArtifactId().equals("wildfly-swarm")) {
+        if (current.getArtifactId().equals("thorntail")) {
             return current;
         }
         return findRoot(current.getParent());
     }
 
     protected boolean isSwarmProject(Dependency dependency) {
-        return dependency.getGroupId().startsWith("org.wildfly.swarm");
+        return dependency.getGroupId().startsWith(FractionRegistry.THORNTAIL_GROUP_ID);
     }
 
     private boolean isNotArquillianArtifact(MavenProject project) {
@@ -116,7 +116,7 @@ public abstract class AbstractFractionsMojo extends AbstractMojo {
     }
 
     protected FractionMetadata arquillianFraction(String version) {
-        return new FractionMetadata("org.wildfly.swarm", "arquillian", version, Scope.TEST.getValue());
+        return new FractionMetadata(FractionRegistry.THORNTAIL_GROUP_ID, "arquillian", version, Scope.TEST.getValue());
     }
 
     @Inject

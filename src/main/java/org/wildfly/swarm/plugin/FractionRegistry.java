@@ -27,6 +27,10 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class FractionRegistry {
 
+    public static final String THORNTAIL_GROUP_ID = "io.thorntail";
+
+    public static final String SPI_ARTIFACT_ID = "spi";
+
     private static final String FRACTION_TAGS_PROPERTY_NAME = "swarm.fraction.tags";
 
     private static final String FRACTION_INTERNAL_PROPERTY_NAME = "swarm.fraction.internal";
@@ -60,7 +64,7 @@ public class FractionRegistry {
         if (project == null) {
             return null;
         }
-        if (project.getGroupId().equals("org.wildfly.swarm") && project.getArtifactId().equals("bootstrap")) {
+        if (project.getGroupId().equals(THORNTAIL_GROUP_ID) && project.getArtifactId().equals("bootstrap")) {
             return null;
         }
         Key key = Key.of(project);
@@ -262,7 +266,7 @@ public class FractionRegistry {
     }
 
     private static Path findJavaFraction(MavenProject project) {
-        if (project.getGroupId().equals("org.wildfly.swarm") && project.getArtifactId().equals("spi")) {
+        if (project.getGroupId().equals(THORNTAIL_GROUP_ID) && project.getArtifactId().equals(SPI_ARTIFACT_ID)) {
             return null;
         }
         Path src = Paths.get(project.getBuild().getSourceDirectory());
