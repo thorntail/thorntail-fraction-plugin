@@ -8,15 +8,15 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>org.wildfly.swarm</groupId>
+    <groupId>io.thorntail</groupId>
     <artifactId>parent</artifactId>
-    <version>9</version>
+    <version>10</version>
   </parent>
 
-  <artifactId>wildfly-swarm-fraction-plugin</artifactId>
+  <artifactId>thorntail-fraction-plugin</artifactId>
 
-  <name>WildFly Swarm: Fraction Plugin</name>
-  <description>Plugin to create fraction packages for Wildfly Swarm proper.</description>
+  <name>Thorntail: Fraction Plugin</name>
+  <description>Plugin to create fraction packages for Thorntail proper.</description>
   <version>87-SNAPSHOT</version>
 
   <packaging>maven-plugin</packaging>
@@ -36,9 +36,9 @@
   </properties>
 
   <scm>
-    <connection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</connection>
-    <developerConnection>scm:git:git@github.com:wildfly-swarm/wildfly-swarm-fraction-plugin.git</developerConnection>
-    <url>https://github.com/wildfly-swarm/wildfly-swarm-fraction-plugin</url>
+    <connection>scm:git:git@github.com:thorntail/thorntail-fraction-plugin.git</connection>
+    <developerConnection>scm:git:git@github.com:thorntail/thorntail-fraction-plugin.git</developerConnection>
+    <url>https://github.com/thorntail/thorntail-fraction-plugin</url>
     <tag>HEAD</tag>
   </scm>
 
