@@ -141,9 +141,9 @@ public class RepositoryBuilderMojo extends AbstractFractionsMojo {
 
     private void generateRuntimeDependenciesDescriptor(File projectDir) throws MojoExecutionException, IOException {
         File projectTargetDir = new File(projectDir, "target");
-        String[] swarmJars = projectTargetDir.list((dir, name) -> name.endsWith("-swarm.jar"));
+        String[] swarmJars = projectTargetDir.list((dir, name) -> name.endsWith("-thorntail.jar"));
         if (swarmJars.length != 1) {
-            throw new MojoExecutionException("Invalid number of -swarm.jar's generated. " +
+            throw new MojoExecutionException("Invalid number of -thorntail.jar's generated. " +
                     "Expecting 1 jar, found: " + Arrays.toString(swarmJars));
         }
         File jar = new File(projectTargetDir, swarmJars[0]);

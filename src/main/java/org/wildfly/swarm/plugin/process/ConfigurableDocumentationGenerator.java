@@ -101,7 +101,7 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
         }
 
         try (OutputStream out = new FileOutputStream(docs.toFile())) {
-            props.store(out, "Created by wildfly-swarm-fraction-plugin");
+            props.store(out, "Created by thorntail-fraction-plugin");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
