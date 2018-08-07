@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,7 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 import org.wildfly.swarm.plugin.FractionMetadata;
+import org.wildfly.swarm.plugin.MavenDependencyData;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -27,10 +29,12 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
     private final Log log;
 
     private final MavenProject project;
+    private final Set<MavenDependencyData> mavenDependencyData;
 
-    public FractionManifestGenerator(Log log, MavenProject project) {
+    public FractionManifestGenerator(Log log, MavenProject project, Set<MavenDependencyData> mavenDependencyData) {
         this.log = log;
         this.project = project;
+        this.mavenDependencyData = mavenDependencyData;
     }
 
     public FractionMetadata apply(FractionMetadata meta) {
@@ -54,18 +58,24 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
                 put("index", meta.getStabilityIndex().ordinal());
             }});
             put("internal", meta.isInternal());
+            // module dependencies per the JBoss Modules module.xml declarations
             put("dependencies",
                 meta.getDependencies()
                         .stream()
                         .map(DependencyMetadata::toString)
                         .collect(Collectors.toList())
             );
+            // transitive module dependencies per the JBoss Modules module.xml declarations
             put("transitive-dependencies",
                 meta.getTransitiveDependencies()
                         .stream()
                         .map(DependencyMetadata::toString)
                         .collect(Collectors.toList())
             );
+            put("maven-dependencies",
+                    mavenDependencyData.stream()
+                            .map(MavenDependencyData::toString)
+                            .collect(Collectors.toList()));
         }};
 
         Path file = Paths.get(this.project.getBuild().getOutputDirectory(), "META-INF", "fraction-manifest.yaml");

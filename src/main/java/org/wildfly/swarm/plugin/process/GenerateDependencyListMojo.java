@@ -1,12 +1,12 @@
 /**
  * Copyright 2015-2016 Red Hat, Inc, and individual contributors.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,17 +15,8 @@
  */
 package org.wildfly.swarm.plugin.process;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
-import java.util.Set;
-
-import javax.inject.Inject;
-
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -38,40 +29,42 @@ import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectDependenciesResolver;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
-import org.eclipse.aether.impl.ArtifactResolver;
-import org.wildfly.swarm.plugin.FractionMetadata;
-import org.wildfly.swarm.plugin.FractionRegistry;
 import org.wildfly.swarm.plugin.MavenDependenciesResolver;
 import org.wildfly.swarm.plugin.MavenDependencyData;
 
-/**
- * @author Bob McWhirter
- * @author Ken Finnigan
- * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
- */
+import javax.inject.Inject;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Set;
+
 @Mojo(
-        name = "process",
+        name = "generate-dependency-list",
         defaultPhase = LifecyclePhase.PROCESS_CLASSES,
         requiresDependencyCollection = ResolutionScope.COMPILE,
         requiresDependencyResolution = ResolutionScope.COMPILE
 )
-public class ProcessMojo extends AbstractMojo {
+public class GenerateDependencyListMojo extends AbstractMojo {
 
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        FractionMetadata meta = FractionRegistry.INSTANCE.of(this.project);
-
-        if (meta == null) {
-            return;
+    public void execute() {
+        Set<MavenDependencyData> deps = mavenDepenendencies();
+        Path file = Paths.get(this.project.getBuild().getOutputDirectory(), "META-INF", "maven-dependencies.txt");
+        try {
+            Files.createDirectories(file.getParent());
+            try (Writer out = new FileWriter(file.toFile());
+                 PrintWriter writer = new PrintWriter(out)) {
+                deps.stream()
+                        .map(MavenDependencyData::toString)
+                        .forEach(writer::println);
+            }
+        } catch (IOException e) {
+            getLog().error(e.getMessage(), e);
         }
-
-        new ModuleGenerator(getLog(), this.project).apply(meta);
-        new CDIMarker(getLog(), this.project).apply(meta);
-        new ModuleFiller(getLog(), this.repositorySystemSession, this.resolver, this.project).apply(meta);
-        new FractionManifestGenerator(getLog(), this.project, mavenDepenendencies()).apply(meta);
-        new DetectClassRemover(getLog(), this.project).apply(meta);
-        new Jandexer(getLog(), new File(this.project.getBuild().getOutputDirectory())).apply(meta);
-        new ConfigurableDocumentationGenerator(getLog(), this.project, new File(this.project.getBuild().getOutputDirectory())).apply(meta);
-        new ReadmeGrabber(this.project).apply(meta);
     }
 
     private Set<MavenDependencyData> mavenDepenendencies() {
@@ -108,9 +101,4 @@ public class ProcessMojo extends AbstractMojo {
 
     @Inject
     private ProjectDependenciesResolver projectDependenciesResolver;
-
-    @Inject
-    private ArtifactResolver resolver;
-
-    private FractionMetadata manifest;
 }
