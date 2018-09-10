@@ -19,18 +19,15 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -39,16 +36,15 @@ import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.AbstractFractionsMojo;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 import org.wildfly.swarm.plugin.FractionMetadata;
+import org.wildfly.swarm.plugin.FractionRegistry;
 
 @Mojo(name = "generate-certified-bom",
         defaultPhase = LifecyclePhase.PACKAGE)
 public class CertifiedBomMojo extends AbstractFractionsMojo {
 
     @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() throws MojoFailureException {
         Set<FractionMetadata> certifiedFractions = loadCertifiedMetadata();
-
-        String certifiedVersion = certifiedFractions.stream().findFirst().get().getVersion();
 
         List<DependencyMetadata> bomItems = new ArrayList<>();
         bomItems.addAll(certifiedFractions);
@@ -75,33 +71,13 @@ public class CertifiedBomMojo extends AbstractFractionsMojo {
     protected Set<FractionMetadata> loadCertifiedMetadata() throws MojoFailureException {
         Path certifiedConf = new File(this.project.getBasedir(), "certified.conf").toPath();
         try (BufferedReader in = new BufferedReader(new FileReader(certifiedConf.toFile()))) {
-            Set<String> certifiedFractions = in.lines()
+            return in.lines()
+                    .filter(artifact -> !"arquillian".equals(artifact))
+                    .map(artifact -> new FractionMetadata(FractionRegistry.THORNTAIL_GROUP_ID, artifact, certifiedVersion))
                     .collect(Collectors.toSet());
-
-            URL listUrl = getClass().getResource("/fraction-list.txt");
-
-            try (BufferedReader listIn = new BufferedReader(new InputStreamReader(listUrl.openStream()))) {
-                return listIn.lines()
-                        .map(e -> {
-                            String[] parts = e.split("=");
-                            return parts[0].trim();
-                        })
-                        .map(e -> {
-                            String[] parts = e.split(":");
-                            return new FractionMetadata(parts[0], parts[1], parts[2], parts.length > 3 ? parts[3] : null);
-                        })
-                        .filter(e -> {
-                            return certifiedFractions.contains(e.getArtifactId());
-                        })
-                        .collect(Collectors.toSet());
-            }
         } catch (IOException e) {
-            throw new MojoFailureException("Unable to read fraction-list.txt", e);
+            throw new MojoFailureException("Unable to read certified.conf", e);
         }
-    }
-
-    protected Set<FractionMetadata> certifiedFractions() {
-        return Collections.emptySet();
     }
 
     private String readTemplate() throws MojoFailureException {
@@ -110,7 +86,7 @@ public class CertifiedBomMojo extends AbstractFractionsMojo {
         }
 
         try {
-            return new String(Files.readAllBytes(this.template.toPath()), "UTF-8");
+            return new String(Files.readAllBytes(this.template.toPath()), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new MojoFailureException("Failed to read template " + this.template, e);
         }
@@ -121,5 +97,8 @@ public class CertifiedBomMojo extends AbstractFractionsMojo {
 
     @Parameter
     private File template;
+
+    @Parameter
+    private String certifiedVersion;
 
 }
