@@ -330,6 +330,8 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                 this.allArtifacts.add(artifact);
             }
 
+            ((NamespacePreservingModuleDescriptor) desc).fillVersionAttribute(artifacts);
+
             desc = this.rules.rewrite(desc);
 
             try (FileOutputStream out = new FileOutputStream(moduleXml.toFile())) {

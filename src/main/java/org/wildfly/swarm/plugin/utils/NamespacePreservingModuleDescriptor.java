@@ -26,4 +26,20 @@ public class NamespacePreservingModuleDescriptor extends ModuleDescriptorImpl {
         }
         return this;
     }
+
+    // ---
+
+    public void fillVersionAttribute(Map<String, Artifact> artifacts) {
+        String moduleVersion = getRootNode().getAttribute("version");
+        if (moduleVersion != null) {
+            if (moduleVersion.startsWith("${")) {
+                moduleVersion = moduleVersion.substring(2, moduleVersion.length() - 1);
+
+                Artifact artifact = artifacts.get(moduleVersion);
+                if (artifact != null) {
+                    getRootNode().attribute("version", artifact.getVersion());
+                }
+            }
+        }
+    }
 }
