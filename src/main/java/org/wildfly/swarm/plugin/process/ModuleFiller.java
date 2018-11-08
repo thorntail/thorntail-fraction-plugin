@@ -39,6 +39,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.MatchResult;
@@ -71,6 +72,7 @@ import org.jboss.shrinkwrap.descriptor.spi.node.Node;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 import org.wildfly.swarm.plugin.FractionMetadata;
+import org.wildfly.swarm.plugin.utils.FilteringHashSet;
 
 /**
  * @author Bob McWhirter
@@ -80,6 +82,11 @@ import org.wildfly.swarm.plugin.FractionMetadata;
 public class ModuleFiller implements Function<FractionMetadata, FractionMetadata> {
 
     private final Log log;
+
+    private final Predicate<String> noPlatformModules = module -> !module.startsWith("java.")
+            && !module.startsWith("javafx.")
+            && !module.startsWith("jdk.")
+            && !module.startsWith("org.jboss.modules");
 
     public ModuleFiller(Log log,
                         DefaultRepositorySystemSession repositorySystemSession,
@@ -144,7 +151,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
     private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException {
         while (true) {
-            Set<String> fillModules = new HashSet<>();
+            Set<String> fillModules = new FilteringHashSet<>(noPlatformModules);
             fillModules.addAll(requiredModules);
             fillModules.removeAll(availableModules);
 
