@@ -73,6 +73,7 @@ import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 import org.wildfly.swarm.plugin.FractionMetadata;
 import org.wildfly.swarm.plugin.utils.FilteringHashSet;
+import org.wildfly.swarm.plugin.utils.NamespacePreservingModuleDescriptor;
 
 /**
  * @author Bob McWhirter
@@ -302,7 +303,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         String rootName = node.getName();
 
         if (rootName.equals("module")) {
-            ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
+            ModuleDescriptor desc = new NamespacePreservingModuleDescriptor(null, node);
             for (ArtifactType<ResourcesType<ModuleDescriptor>> moduleArtifact : desc.getOrCreateResources().getAllArtifact()) {
                 String name = moduleArtifact.getName();
                 if (name.startsWith("${")) {
