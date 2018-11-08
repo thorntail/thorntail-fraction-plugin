@@ -30,10 +30,12 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -109,7 +111,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
             locateFillModules(potentialModules, requiredModules, availableModules);
 
             long size = 0;
-            DecimalFormat fmt = new DecimalFormat("####.00");
+            DecimalFormat fmt = new DecimalFormat("###0.00", new DecimalFormatSymbols(Locale.US));
             for (Artifact artifact : this.allArtifacts) {
                 ArtifactRequest req = new ArtifactRequest();
                 req.setArtifact(artifact);
@@ -120,13 +122,13 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                         File file = artifactResult.getArtifact().getFile();
                         long artifactSize = Files.size(file.toPath());
                         size += artifactSize;
-                        this.log.info(String.format("%100s %10s mb", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
+                        this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
                     }
                 } catch (Exception e) {
                     this.log.error(e.getMessage(), e);
                 }
             }
-            this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
+            this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " MB");
         } catch (IOException e) {
             this.log.error(e.getMessage(), e);
         }
