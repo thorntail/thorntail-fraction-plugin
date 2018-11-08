@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -51,6 +50,7 @@ import java.util.zip.ZipFile;
 import javax.inject.Inject;
 
 import org.apache.maven.model.Resource;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -59,6 +59,7 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
@@ -80,7 +81,7 @@ import org.wildfly.swarm.plugin.utils.NamespacePreservingModuleDescriptor;
  * @author Ken Finnigan
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-public class ModuleFiller implements Function<FractionMetadata, FractionMetadata> {
+public class ModuleFiller {
 
     private final Log log;
 
@@ -99,7 +100,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         this.project = project;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         try {
             this.meta = meta;
             loadRewriteRules();
@@ -124,21 +125,17 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
                 ArtifactRequest req = new ArtifactRequest();
                 req.setArtifact(artifact);
 
-                try {
-                    ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
-                    if (artifactResult.isResolved()) {
-                        File file = artifactResult.getArtifact().getFile();
-                        long artifactSize = Files.size(file.toPath());
-                        size += artifactSize;
-                        this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
-                    }
-                } catch (Exception e) {
-                    this.log.error(e.getMessage(), e);
+                ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
+                if (artifactResult.isResolved()) {
+                    File file = artifactResult.getArtifact().getFile();
+                    long artifactSize = Files.size(file.toPath());
+                    size += artifactSize;
+                    this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
                 }
             }
             this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " MB");
-        } catch (IOException e) {
-            this.log.error(e.getMessage(), e);
+        } catch (IOException | ArtifactResolutionException e) {
+            throw new MojoExecutionException("Failed collecting module dependencies of " + meta + ", check feature pack ZIPs", e);
         }
 
         return meta;
@@ -150,7 +147,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
     }
 
-    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         while (true) {
             Set<String> fillModules = new FilteringHashSet<>(noPlatformModules);
             fillModules.addAll(requiredModules);
@@ -173,13 +170,13 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         for (File each : relevantFiles) {
             addFillModules(fillModules, each, requiredModules, availableModules);
         }
     }
 
-    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         Map<String, ZipEntry> moduleXmls = new HashMap<>();
         ZipEntry featurePackXml = null;
 
@@ -217,7 +214,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
             }
 
             if (featurePackXml == null) {
-                throw new IOException("Unable to find -feature-pack.xml");
+                throw new MojoExecutionException("Unable to find wildfly-feature-pack.xml in " + file);
             }
 
             Map<String, Artifact> artifacts = processFeaturePackXml(zip.getInputStream(featurePackXml));

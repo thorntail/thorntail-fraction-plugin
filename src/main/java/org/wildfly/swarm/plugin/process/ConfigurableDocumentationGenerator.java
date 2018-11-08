@@ -2,25 +2,23 @@ package org.wildfly.swarm.plugin.process;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Objects;
 import java.util.Properties;
-import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jboss.jandex.AnnotationInstance;
@@ -39,7 +37,7 @@ import org.wildfly.swarm.plugin.process.configurable.ResourceDocumentationGather
 /**
  * @author Bob McWhirter
  */
-public class ConfigurableDocumentationGenerator implements Function<FractionMetadata, FractionMetadata> {
+public class ConfigurableDocumentationGenerator {
     public static final DotName FRACTION_CLASS = DotName.createSimple("org.wildfly.swarm.spi.api.Fraction");
 
     public static final DotName CONFIGURABLE_ANNOTATION = DotName.createSimple("org.wildfly.swarm.spi.api.annotations.Configurable");
@@ -67,8 +65,7 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
         this.documentationRegistry = new DocumentationRegistry();
     }
 
-    @Override
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         if (!meta.hasJavaCode()) {
             return meta;
         }
@@ -83,8 +80,14 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
             return meta;
         }
 
-        IndexView ownIndex = loadOwnIndex();
-        IndexView totalIndex = buildIndex(ownIndex);
+        IndexView ownIndex = null;
+        IndexView totalIndex = null;
+        try {
+            ownIndex = loadOwnIndex();
+            totalIndex = buildIndex(ownIndex);
+        } catch (IOException e) {
+            throw new MojoExecutionException("Failed creating Jandex indexes", e);
+        }
 
         process(ownIndex, totalIndex);
 
@@ -103,19 +106,19 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
         try (OutputStream out = new FileOutputStream(docs.toFile())) {
             props.store(out, "Created by thorntail-fraction-plugin");
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new MojoExecutionException("Failed writing configuration-meta.properties", e);
         }
 
         return meta;
     }
 
-    protected IndexView buildIndex(IndexView ownIndex) {
+    protected IndexView buildIndex(IndexView ownIndex) throws IOException {
         IndexView dependentIndexes = loadDependentIndexes();
 
         return CompositeIndex.create(ownIndex, dependentIndexes);
     }
 
-    protected IndexView loadOwnIndex() {
+    protected IndexView loadOwnIndex() throws IOException {
         final Path idx = this.classesDir.resolve("META-INF").resolve(Jandexer.INDEX_NAME);
 
         IndexView index = null;
@@ -123,30 +126,20 @@ public class ConfigurableDocumentationGenerator implements Function<FractionMeta
         if (Files.exists(idx)) {
             try (InputStream in = new FileInputStream(idx.toFile())) {
                 index = loadIndex(in);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
         }
 
         return index;
     }
 
-    protected IndexView loadDependentIndexes() {
-        List<IndexView> indexes = this.project.getArtifacts()
-                .stream()
-                .map(artifact -> {
-                    try {
-                        return loadIndex(artifact);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
+    protected IndexView loadDependentIndexes() throws IOException {
+        List<IndexView> indexes = new ArrayList<>();
+        for (Artifact artifact : this.project.getArtifacts()) {
+            IndexView index = loadIndex(artifact);
+            if (index != null) {
+                indexes.add(index);
+            }
+        }
         return CompositeIndex.create(indexes);
     }
 

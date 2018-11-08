@@ -6,15 +6,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.function.Function;
 
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * @author Bob McWhirter
  */
-public class ReadmeGrabber implements Function<FractionMetadata, FractionMetadata> {
+public class ReadmeGrabber {
 
     private final MavenProject project;
 
@@ -22,8 +22,7 @@ public class ReadmeGrabber implements Function<FractionMetadata, FractionMetadat
         this.project = project;
     }
 
-    @Override
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         if (!meta.isFraction()) {
             return meta;
         }
@@ -40,7 +39,7 @@ public class ReadmeGrabber implements Function<FractionMetadata, FractionMetadat
             Files.createDirectories(destination.getParent());
             Files.copy(readme.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new MojoExecutionException("Failed copying README.adoc", e);
         }
 
         return meta;

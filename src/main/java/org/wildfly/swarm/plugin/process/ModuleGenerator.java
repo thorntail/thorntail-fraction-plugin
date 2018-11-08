@@ -16,10 +16,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 import org.jboss.shrinkwrap.descriptor.api.Descriptors;
@@ -36,7 +36,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
 /**
  * @author Bob McWhirter
  */
-public class ModuleGenerator implements Function<FractionMetadata, FractionMetadata> {
+public class ModuleGenerator {
 
     private static final String RUNTIME = "runtime";
 
@@ -52,14 +52,12 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
 
     private final MavenProject project;
 
-    public ModuleGenerator(Log log,
-                           MavenProject project) {
+    public ModuleGenerator(Log log, MavenProject project) {
         this.log = log;
         this.project = project;
     }
 
-    @Override
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         if (meta.hasModuleConf()) {
             Path moduleConf = meta.getModuleConf();
             List<String> dependencies;
@@ -70,7 +68,7 @@ public class ModuleGenerator implements Function<FractionMetadata, FractionMetad
                         .collect(Collectors.toList());
                 generate(meta.getBaseModulePath(), dependencies);
             } catch (IOException e) {
-                this.log.error(e.getMessage(), e);
+                throw new MojoExecutionException("Failed generating module.xml files from module.conf", e);
             }
         }
         return meta;

@@ -10,10 +10,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.DependencyMetadata;
 import org.wildfly.swarm.plugin.FractionMetadata;
@@ -24,10 +24,9 @@ import org.yaml.snakeyaml.Yaml;
 /**
  * @author Bob McWhirter
  */
-public class FractionManifestGenerator implements Function<FractionMetadata, FractionMetadata> {
+public class FractionManifestGenerator {
 
     private final Log log;
-
     private final MavenProject project;
     private final Set<MavenDependencyData> mavenDependencyData;
 
@@ -37,14 +36,13 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
         this.mavenDependencyData = mavenDependencyData;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
 
         Yaml yaml = new Yaml(options);
 
         Map<String, Object> data = new LinkedHashMap<String, Object>() {{
-            //noinspection unchecked
             put("name", meta.getName());
             put("description", meta.getDescription());
             put("groupId", meta.getGroupId());
@@ -85,7 +83,7 @@ public class FractionManifestGenerator implements Function<FractionMetadata, Fra
                 yaml.dump(data, out);
             }
         } catch (IOException e) {
-            this.log.error(e.getMessage(), e);
+            throw new MojoExecutionException("Failed writing fraction-manifest.yaml", e);
         }
 
         return meta;

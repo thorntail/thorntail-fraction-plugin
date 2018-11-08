@@ -3,16 +3,16 @@ package org.wildfly.swarm.plugin.process;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.function.Function;
 
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * @author Ken Finnigan
  */
-public class CDIMarker implements Function<FractionMetadata, FractionMetadata> {
+public class CDIMarker {
 
     private static final String CDI_MARKER = "META-INF/beans.xml";
 
@@ -21,7 +21,7 @@ public class CDIMarker implements Function<FractionMetadata, FractionMetadata> {
         this.project = project;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         if (meta.hasJavaCode()) {
             File cdiMarker = new File(this.project.getBuild().getOutputDirectory(), CDI_MARKER);
             cdiMarker.getParentFile().mkdirs();
@@ -34,7 +34,7 @@ public class CDIMarker implements Function<FractionMetadata, FractionMetadata> {
                         "</beans>");
                 writer.flush();
             } catch (IOException e) {
-                this.log.error(e.getMessage(), e);
+                throw new MojoExecutionException("Failed writing " + CDI_MARKER, e);
             }
         }
 

@@ -6,12 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.codehaus.plexus.util.DirectoryScanner;
-import org.codehaus.plexus.util.IOUtil;
-import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.IndexWriter;
 import org.jboss.jandex.Indexer;
@@ -23,7 +21,7 @@ import org.wildfly.swarm.plugin.FractionMetadata;
  *
  * @author Heiko Braun
  */
-public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
+public class Jandexer {
 
     public static final String INDEX_NAME = "jandex.idx";
 
@@ -32,7 +30,7 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
         this.classesDir = classesDir;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         if (!meta.hasJavaCode()) {
             return meta;
         }
@@ -72,9 +70,9 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
         for (final String file : files) {
             if (file.endsWith(".class")) {
                 try (FileInputStream fis = new FileInputStream(new File(dir, file))) {
-                    final ClassInfo info = indexer.index(fis);
+                    indexer.index(fis);
                 } catch (IOException e) {
-                    this.log.error(e.getMessage());
+                    throw new MojoExecutionException("Failed indexing class " + file, e);
                 }
             }
         }
@@ -82,16 +80,12 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
         final File idx = new File(dir, "META-INF/" + INDEX_NAME);
         idx.getParentFile().mkdirs();
 
-        FileOutputStream indexOut = null;
-        try {
-            indexOut = new FileOutputStream(idx);
+        try (FileOutputStream indexOut = new FileOutputStream(idx)) {
             final IndexWriter writer = new IndexWriter(indexOut);
             final Index index = indexer.complete();
             writer.write(index);
         } catch (IOException e) {
-            this.log.error(e.getMessage(), e);
-        } finally {
-            IOUtil.close(indexOut);
+            throw new MojoExecutionException("Failed writing Jandex index " + idx, e);
         }
         return meta;
     }
@@ -105,4 +99,3 @@ public class Jandexer implements Function<FractionMetadata, FractionMetadata> {
     private File classesDir;
 
 }
-
