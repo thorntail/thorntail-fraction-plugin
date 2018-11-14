@@ -119,22 +119,40 @@ public class ModuleFiller {
 
             locateFillModules(potentialModules, requiredModules, availableModules);
 
-            long size = 0;
             DecimalFormat fmt = new DecimalFormat("###0.00", new DecimalFormatSymbols(Locale.US));
+            double bytesInMegabyte = 1024.0 * 1024.0;
+
+            long size = 0;
+            boolean unknownSize = false;
             for (Artifact artifact : this.allArtifacts) {
                 ArtifactRequest req = new ArtifactRequest();
                 req.setArtifact(artifact);
 
-                ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
-                if (artifactResult.isResolved()) {
-                    File file = artifactResult.getArtifact().getFile();
-                    long artifactSize = Files.size(file.toPath());
-                    size += artifactSize;
-                    this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
+                String artifactSizeStr = "???";
+                try {
+                    ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
+                    if (artifactResult.isResolved()) {
+                        File file = artifactResult.getArtifact().getFile();
+                        long artifactSize = Files.size(file.toPath());
+                        size += artifactSize;
+                        artifactSizeStr = fmt.format(artifactSize / bytesInMegabyte);
+                    } else {
+                        unknownSize = true;
+                    }
+                } catch (ArtifactResolutionException | IOException e) {
+                    unknownSize = true;
                 }
+                this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), artifactSizeStr));
             }
-            this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " MB");
-        } catch (IOException | ArtifactResolutionException e) {
+            String sizeStr;
+            if (unknownSize && size == 0) {
+                sizeStr = "unknown";
+            } else {
+                sizeStr = fmt.format(size / bytesInMegabyte) + (unknownSize ? "+" : "") + " MB";
+            }
+
+            this.log.info(this.project.getArtifactId() + ": total size:  " + sizeStr);
+        } catch (IOException e) {
             throw new MojoExecutionException("Failed collecting module dependencies of " + meta + ", check feature pack ZIPs", e);
         }
 
