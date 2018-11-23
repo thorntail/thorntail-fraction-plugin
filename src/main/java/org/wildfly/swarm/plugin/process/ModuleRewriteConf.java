@@ -30,9 +30,13 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
  */
 public class ModuleRewriteConf {
 
-    public ModuleRewriteConf(Path file) throws IOException {
-        if (Files.exists(file)) {
-            load(file);
+    public ModuleRewriteConf(Path baseDir) throws IOException {
+        while (baseDir != null) {
+            Path file = baseDir.resolve("module-rewrite.conf");
+            if (Files.exists(file)) {
+                load(file);
+            }
+            baseDir = baseDir.getParent();
         }
     }
 

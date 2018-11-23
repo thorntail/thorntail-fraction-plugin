@@ -160,8 +160,8 @@ public class ModuleFiller {
     }
 
     private void loadRewriteRules() throws IOException {
-        Path rewriteConf = Paths.get(this.project.getBasedir().getAbsolutePath(), "module-rewrite.conf");
-        this.rules = new ModuleRewriteConf(rewriteConf);
+        Path baseDir = Paths.get(this.project.getBasedir().getAbsolutePath());
+        this.rules = new ModuleRewriteConf(baseDir);
 
     }
 
