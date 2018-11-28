@@ -7,30 +7,29 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.function.Function;
 
 import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.wildfly.swarm.plugin.FractionMetadata;
 
 /**
  * @author Ken Finnigan
  */
-public class DetectClassRemover implements Function<FractionMetadata, FractionMetadata> {
+public class DetectClassRemover {
 
     public DetectClassRemover(Log log, MavenProject project) {
         this.log = log;
         this.project = project;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         String outputDirStr = project.getBuild().getOutputDirectory();
 
         Path outputDir = Paths.get(outputDirStr);
 
         try {
             Files.walkFileTree(outputDir, new SimpleFileVisitor<Path>() {
-
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                     if (dir.getFileName().toString().equals("detect")) {
@@ -54,7 +53,7 @@ public class DetectClassRemover implements Function<FractionMetadata, FractionMe
                 }
             });
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new MojoExecutionException("Failed removing 'detect' classes from " + outputDirStr, e);
         }
         return meta;
     }

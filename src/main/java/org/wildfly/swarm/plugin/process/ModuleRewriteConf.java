@@ -30,9 +30,13 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
  */
 public class ModuleRewriteConf {
 
-    public ModuleRewriteConf(Path file) throws IOException {
-        if (Files.exists(file)) {
-            load(file);
+    public ModuleRewriteConf(Path baseDir) throws IOException {
+        while (baseDir != null) {
+            Path file = baseDir.resolve("module-rewrite.conf");
+            if (Files.exists(file)) {
+                load(file);
+            }
+            baseDir = baseDir.getParent();
         }
     }
 
@@ -145,6 +149,9 @@ public class ModuleRewriteConf {
                     }
 
                     current.export(name, slot);
+                } else if (line.startsWith(REMOVE_ARTIFACT)) {
+                    String pattern = line.substring(REMOVE_ARTIFACT.length()).trim();
+                    current.removeArtifact(pattern);
                 } else {
                     System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
@@ -161,6 +168,8 @@ public class ModuleRewriteConf {
     private static final String OPTIONAL = "optional:";
 
     private static final String REPLACE = "replace:";
+
+    private static final String REMOVE_ARTIFACT = "remove-artifact:";
 
     private static final String MAIN = "main";
 

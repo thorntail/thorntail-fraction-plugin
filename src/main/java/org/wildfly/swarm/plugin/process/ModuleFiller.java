@@ -30,13 +30,15 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.MatchResult;
@@ -48,6 +50,7 @@ import java.util.zip.ZipFile;
 import javax.inject.Inject;
 
 import org.apache.maven.model.Resource;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
@@ -56,6 +59,7 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
@@ -69,15 +73,22 @@ import org.jboss.shrinkwrap.descriptor.spi.node.Node;
 import org.jboss.shrinkwrap.descriptor.spi.node.NodeImporter;
 import org.jboss.shrinkwrap.descriptor.spi.node.dom.XmlDomNodeImporterImpl;
 import org.wildfly.swarm.plugin.FractionMetadata;
+import org.wildfly.swarm.plugin.utils.FilteringHashSet;
+import org.wildfly.swarm.plugin.utils.NamespacePreservingModuleDescriptor;
 
 /**
  * @author Bob McWhirter
  * @author Ken Finnigan
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-public class ModuleFiller implements Function<FractionMetadata, FractionMetadata> {
+public class ModuleFiller {
 
     private final Log log;
+
+    private final Predicate<String> noPlatformModules = module -> !module.startsWith("java.")
+            && !module.startsWith("javafx.")
+            && !module.startsWith("jdk.")
+            && !module.startsWith("org.jboss.modules");
 
     public ModuleFiller(Log log,
                         DefaultRepositorySystemSession repositorySystemSession,
@@ -89,7 +100,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         this.project = project;
     }
 
-    public FractionMetadata apply(FractionMetadata meta) {
+    public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         try {
             this.meta = meta;
             loadRewriteRules();
@@ -108,41 +119,55 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
             locateFillModules(potentialModules, requiredModules, availableModules);
 
+            DecimalFormat fmt = new DecimalFormat("###0.00", new DecimalFormatSymbols(Locale.US));
+            double bytesInMegabyte = 1024.0 * 1024.0;
+
             long size = 0;
-            DecimalFormat fmt = new DecimalFormat("####.00");
+            boolean unknownSize = false;
             for (Artifact artifact : this.allArtifacts) {
                 ArtifactRequest req = new ArtifactRequest();
                 req.setArtifact(artifact);
 
+                String artifactSizeStr = "???";
                 try {
                     ArtifactResult artifactResult = this.resolver.resolveArtifact(repositorySystemSession, req);
                     if (artifactResult.isResolved()) {
                         File file = artifactResult.getArtifact().getFile();
                         long artifactSize = Files.size(file.toPath());
                         size += artifactSize;
-                        this.log.info(String.format("%100s %10s mb", toModuleArtifactName(artifact), fmt.format(artifactSize / (1024.0 * 1024.0))));
+                        artifactSizeStr = fmt.format(artifactSize / bytesInMegabyte);
+                    } else {
+                        unknownSize = true;
                     }
-                } catch (Exception e) {
-                    this.log.error(e.getMessage(), e);
+                } catch (ArtifactResolutionException | IOException e) {
+                    unknownSize = true;
                 }
+                this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), artifactSizeStr));
             }
-            this.log.info(this.project.getArtifactId() + ": total size:  " + fmt.format(size / (1024.0 * 1024.0)) + " mb");
+            String sizeStr;
+            if (unknownSize && size == 0) {
+                sizeStr = "unknown";
+            } else {
+                sizeStr = fmt.format(size / bytesInMegabyte) + (unknownSize ? "+" : "") + " MB";
+            }
+
+            this.log.info(this.project.getArtifactId() + ": total size:  " + sizeStr);
         } catch (IOException e) {
-            this.log.error(e.getMessage(), e);
+            throw new MojoExecutionException("Failed collecting module dependencies of " + meta + ", check feature pack ZIPs", e);
         }
 
         return meta;
     }
 
     private void loadRewriteRules() throws IOException {
-        Path rewriteConf = Paths.get(this.project.getBasedir().getAbsolutePath(), "module-rewrite.conf");
-        this.rules = new ModuleRewriteConf(rewriteConf);
+        Path baseDir = Paths.get(this.project.getBasedir().getAbsolutePath());
+        this.rules = new ModuleRewriteConf(baseDir);
 
     }
 
-    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         while (true) {
-            Set<String> fillModules = new HashSet<>();
+            Set<String> fillModules = new FilteringHashSet<>(noPlatformModules);
             fillModules.addAll(requiredModules);
             fillModules.removeAll(availableModules);
 
@@ -163,13 +188,13 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         }
     }
 
-    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         for (File each : relevantFiles) {
             addFillModules(fillModules, each, requiredModules, availableModules);
         }
     }
 
-    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException {
+    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         Map<String, ZipEntry> moduleXmls = new HashMap<>();
         ZipEntry featurePackXml = null;
 
@@ -207,7 +232,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
             }
 
             if (featurePackXml == null) {
-                throw new IOException("Unable to find -feature-pack.xml");
+                throw new MojoExecutionException("Unable to find wildfly-feature-pack.xml in " + file);
             }
 
             Map<String, Artifact> artifacts = processFeaturePackXml(zip.getInputStream(featurePackXml));
@@ -293,7 +318,7 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
         String rootName = node.getName();
 
         if (rootName.equals("module")) {
-            ModuleDescriptor desc = new ModuleDescriptorImpl(null, node);
+            ModuleDescriptor desc = new NamespacePreservingModuleDescriptor(null, node);
             for (ArtifactType<ResourcesType<ModuleDescriptor>> moduleArtifact : desc.getOrCreateResources().getAllArtifact()) {
                 String name = moduleArtifact.getName();
                 if (name.startsWith("${")) {
@@ -319,6 +344,8 @@ public class ModuleFiller implements Function<FractionMetadata, FractionMetadata
 
                 this.allArtifacts.add(artifact);
             }
+
+            ((NamespacePreservingModuleDescriptor) desc).fillVersionAttribute(artifacts);
 
             desc = this.rules.rewrite(desc);
 

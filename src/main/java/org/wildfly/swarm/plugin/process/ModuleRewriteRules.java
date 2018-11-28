@@ -18,10 +18,13 @@ package org.wildfly.swarm.plugin.process;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ArtifactType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.DependenciesType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
+import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ResourcesType;
 
 /**
  * @author Bob McWhirter
@@ -46,6 +49,10 @@ public class ModuleRewriteRules {
     void replace(String origName, String origSlot, String replaceName, String replaceSlot) {
         System.err.println("adding replace: " + origName + ":" + origSlot + " with " + replaceName + ":" + replaceSlot);
         this.rules.add(new Replace(origName, origSlot, replaceName, replaceSlot));
+    }
+
+    void removeArtifact(String pattern) {
+        this.rules.add(new RemoveArtifact(pattern));
     }
 
     ModuleDescriptor rewrite(ModuleDescriptor desc) {
@@ -164,6 +171,26 @@ public class ModuleRewriteRules {
 
                 if (depName.equals(this.origName) && depSlot.equals(this.origSlot)) {
                     each.name(this.replaceName).slot(this.replaceSlot);
+                }
+            }
+        }
+    }
+
+    private static class RemoveArtifact extends Rule {
+        private final Pattern pattern;
+
+        RemoveArtifact(String pattern) {
+            this.pattern = Pattern.compile(pattern);
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            ResourcesType<ModuleDescriptor> resources = desc.getOrCreateResources();
+            List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = resources.getAllArtifact();
+            resources.removeAllArtifact();
+            for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
+                if (!pattern.matcher(artifact.getName()).find()) {
+                    resources.createArtifact().name(artifact.getName());
                 }
             }
         }
