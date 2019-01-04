@@ -166,7 +166,7 @@ public abstract class DocumentationGatherer {
         }
 
         String name = fraction.name().local();
-        return "swarm." + dashize(name.replace("Fraction", "")).toLowerCase();
+        return "thorntail." + dashize(name.replace("Fraction", "")).toLowerCase();
     }
 
     public abstract void gather();
