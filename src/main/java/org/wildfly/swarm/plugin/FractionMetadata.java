@@ -36,6 +36,21 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public class FractionMetadata extends DependencyMetadata {
 
+    public FractionMetadata(FractionMetadata metadata) {
+        super(metadata.getGroupId(), metadata.getArtifactId(), metadata.getVersion(), metadata.getClassifier(), metadata.getPackaging(),
+              metadata.getScope());
+        this.name = metadata.name;
+        this.description = metadata.description;
+        this.tags = metadata.tags;
+        this.internal = metadata.internal;
+        this.bootstrap = metadata.bootstrap;
+        this.moduleConf = metadata.moduleConf;
+        this.hasJavaCode = metadata.hasJavaCode;
+        this.javaFraction = metadata.javaFraction;
+        this.baseModulePath = metadata.baseModulePath;
+        this.stabilityIndex = metadata.stabilityIndex;
+    }
+
     public FractionMetadata(String groupId, String artifactId, String version) {
         this(groupId, artifactId, version, null);
     }

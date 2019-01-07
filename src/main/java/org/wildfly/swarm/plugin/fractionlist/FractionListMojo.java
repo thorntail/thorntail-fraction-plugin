@@ -120,6 +120,10 @@ public class FractionListMojo extends AbstractFractionsMojo {
     }
 
     private void generateJavascript(Set<FractionMetadata> fractions) {
+        Set<FractionMetadata> fractionsWithoutDeps = fractions.stream()
+                .map(FractionMetadata::new)
+                .collect(Collectors.toSet());
+
         ObjectMapper mapper = new ObjectMapper();
 
         mapper.configure(JsonGenerator.Feature.AUTO_CLOSE_TARGET, false);
@@ -131,7 +135,7 @@ public class FractionListMojo extends AbstractFractionsMojo {
             writer.write("fractionList = ");
             writer.flush();
 
-            mapper.writeValue(writer, fractions);
+            mapper.writeValue(writer, fractionsWithoutDeps);
 
             writer.write(";");
             writer.flush();
