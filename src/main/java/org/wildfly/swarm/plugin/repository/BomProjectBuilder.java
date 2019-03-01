@@ -48,7 +48,9 @@ class BomProjectBuilder {
 
         String dependenciesAsString = Stream.of(bomFiles)
                 .flatMap(file -> getDependencies(file).stream())
+                .filter(XmlDependencyElement::isNormalDependency)
                 .map(XmlDependencyElement::getElementAsString)
+                .distinct()
                 .collect(Collectors.joining(NEWLINE));
 
         String pomContent = readTemplate(projectTemplate)

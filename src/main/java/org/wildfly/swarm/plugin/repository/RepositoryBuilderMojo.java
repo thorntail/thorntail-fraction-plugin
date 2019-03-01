@@ -190,11 +190,11 @@ public class RepositoryBuilderMojo extends AbstractFractionsMojo {
         Properties props = System.getProperties();
 
         if (Boolean.parseBoolean(downloadSources)) {
-            props.setProperty("swarm.download.sources", "");
+            props.setProperty("thorntail.download.sources", "");
         }
 
         if (Boolean.parseBoolean(downloadPoms)) {
-            props.setProperty("swarm.download.poms", "");
+            props.setProperty("thorntail.download.poms", "");
         }
 
         mavenRequest.setProperties(props);
