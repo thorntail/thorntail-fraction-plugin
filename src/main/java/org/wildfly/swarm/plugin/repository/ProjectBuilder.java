@@ -6,6 +6,7 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.project.MavenProject;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -24,6 +25,7 @@ public class ProjectBuilder {
     }
 
     public File generateProject(File... bomFiles) throws MojoExecutionException {
+        log.info("Generating pom.xml from BOMs: " + Arrays.toString(bomFiles));
 
         try {
             // Initialize the project dir first
@@ -42,7 +44,7 @@ public class ProjectBuilder {
             if (!pomFile.exists()) {
                 throw new MojoFailureException("Failed to create project pom.xml");
             }
-            log.info("Generated pom.xml from BOM: " + pomFile.getAbsolutePath());
+            log.info("Generated pom.xml: " + pomFile.getAbsolutePath());
 
             return projectDir;
         } catch (Exception e) {
@@ -51,7 +53,9 @@ public class ProjectBuilder {
     }
 
     protected String projectName(File[] bomFiles) {
-        return "generated-project-" + Stream.of(bomFiles).map(File::getName).collect(Collectors.joining("_"));
+        return "generated-project_" + Stream.of(bomFiles)
+                .map(bomFile -> PomUtils.extract(bomFile, "/project/artifactId/text()").asString())
+                .collect(Collectors.joining("_"));
     }
 
     private final File template;

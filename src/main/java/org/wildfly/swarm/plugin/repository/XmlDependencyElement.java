@@ -39,6 +39,7 @@ public class XmlDependencyElement {
 
     private String groupId;
     private String artifactId;
+    private String scope;
     private String elementAsString;
 
     static {
@@ -54,12 +55,17 @@ public class XmlDependencyElement {
         return elementAsString;
     }
 
+    public boolean isNormalDependency() {
+        return !"import".equals(scope); // `scope` can be `null`
+    }
+
     public static XmlDependencyElement fromNode(Node node, String elementAsString) {
         Map<String, String> map = toMap(node.getChildNodes());
 
         XmlDependencyElement result = new XmlDependencyElement();
         result.groupId = map.get("groupId");
         result.artifactId = map.get("artifactId");
+        result.scope = map.get("scope");
 
         result.elementAsString = elementAsString;
 
