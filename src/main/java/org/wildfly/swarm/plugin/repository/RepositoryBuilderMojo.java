@@ -58,7 +58,7 @@ public class RepositoryBuilderMojo extends AbstractFractionsMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
-        ProjectBuilder projectBuilder = new ProjectBuilder(project, getLog(), template);
+        ProjectBuilder projectBuilder = new ProjectBuilder(project, getLog(), template, skipBomDependencies);
         /*
                 1. build repository for bom
                     - generate project for bom contents only
@@ -338,6 +338,12 @@ public class RepositoryBuilderMojo extends AbstractFractionsMojo {
 
     @Parameter
     private File template;
+
+    /**
+     * List of expressions used to filter BOM dependencies.
+     */
+    @Parameter
+    private String[] skipBomDependencies;
 
     boolean defaultGenerateZip = true;
 

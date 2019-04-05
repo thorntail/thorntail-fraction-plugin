@@ -18,10 +18,12 @@ public class ProjectBuilder {
 
     public ProjectBuilder(MavenProject project,
                           Log log,
-                          File template) {
+                          File template,
+                          String[] skipBomDependencies) {
         this.project = project;
         this.log = log;
         this.template = template;
+        this.skipBomDependencies = skipBomDependencies;
     }
 
     public File generateProject(File... bomFiles) throws MojoExecutionException {
@@ -40,7 +42,7 @@ public class ProjectBuilder {
                 throw new MojoFailureException("Unable to proceed without a `template` specified for generating a project pom.xml.");
             }
 
-            File pomFile = BomProjectBuilder.generateProject(projectDir, template, project, bomFiles);
+            File pomFile = BomProjectBuilder.generateProject(projectDir, template, project, bomFiles, skipBomDependencies);
             if (!pomFile.exists()) {
                 throw new MojoFailureException("Failed to create project pom.xml");
             }
@@ -59,6 +61,7 @@ public class ProjectBuilder {
     }
 
     private final File template;
+    private final String[] skipBomDependencies;
     private final MavenProject project;
     private final Log log;
 

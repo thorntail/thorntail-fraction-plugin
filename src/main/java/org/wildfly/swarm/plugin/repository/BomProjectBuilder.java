@@ -38,7 +38,8 @@ class BomProjectBuilder {
     static File generateProject(final File generatedProject,
                                 final File projectTemplate,
                                 final MavenProject bomProject,
-                                final File[] bomFiles) throws Exception {
+                                final File[] bomFiles,
+                                String[] skipBomDependencies) throws Exception {
 
         String properties = extract(bomFiles[0], "//properties/*").asString();
 
@@ -47,7 +48,7 @@ class BomProjectBuilder {
                 .collect(Collectors.joining(NEWLINE));
 
         String dependenciesAsString = Stream.of(bomFiles)
-                .flatMap(file -> getDependencies(file).stream())
+                .flatMap(file -> getDependencies(file, skipBomDependencies).stream())
                 .filter(XmlDependencyElement::isNormalDependency)
                 .map(XmlDependencyElement::getElementAsString)
                 .distinct()
@@ -68,7 +69,6 @@ class BomProjectBuilder {
         return pom;
     }
 
-
     private static String createPomImportXml(File file, String version) {
         String groupId = extract(file, "/project/groupId").asString();
         String projectId = extract(file, "/project/artifactId").asString();
@@ -84,9 +84,10 @@ class BomProjectBuilder {
         );
     }
 
-    private static List<XmlDependencyElement> getDependencies(File additionalBom) {
+    private static List<XmlDependencyElement> getDependencies(File additionalBom, String[] skipBomDependencies) {
         PomUtils.XmlToString result =
-                PomUtils.extract(additionalBom, "//dependencyManagement/dependencies/*");
+                PomUtils.extract(additionalBom, "//dependencyManagement/dependencies/*")
+                    .skipping(skipBomDependencies);
 
         return result.translate(XmlDependencyElement::fromNode);
     }
