@@ -103,7 +103,7 @@ public class ModuleFiller {
     public FractionMetadata apply(FractionMetadata meta) throws MojoExecutionException {
         try {
             this.meta = meta;
-            loadRewriteRules();
+            this.rules = new ModuleRewriteConf(this.project);
 
             Set<String> requiredModules = new HashSet<>();
             Set<String> availableModules = new HashSet<>();
@@ -142,7 +142,7 @@ public class ModuleFiller {
                 } catch (ArtifactResolutionException | IOException e) {
                     unknownSize = true;
                 }
-                this.log.info(String.format("%100s %10s MB", toModuleArtifactName(artifact), artifactSizeStr));
+                this.log.info(String.format("%100s %10s MB", ModuleXmlArtifact.from(artifact), artifactSizeStr));
             }
             String sizeStr;
             if (unknownSize && size == 0) {
@@ -157,12 +157,6 @@ public class ModuleFiller {
         }
 
         return meta;
-    }
-
-    private void loadRewriteRules() throws IOException {
-        Path baseDir = Paths.get(this.project.getBasedir().getAbsolutePath());
-        this.rules = new ModuleRewriteConf(baseDir);
-
     }
 
     private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
@@ -340,7 +334,7 @@ public class ModuleFiller {
                         throw new RuntimeException("Could not resolve module artifact " + name);
                     }
                 }
-                moduleArtifact.name(toModuleArtifactName(artifact));
+                moduleArtifact.name(ModuleXmlArtifact.from(artifact).toString());
 
                 this.allArtifacts.add(artifact);
             }
@@ -386,11 +380,6 @@ public class ModuleFiller {
         return artifacts;
     }
 
-    private String toModuleArtifactName(final Artifact artifact) {
-        final String name = artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
-        return artifact.getClassifier().isEmpty() ? name : name + ":" + artifact.getClassifier();
-    }
-
     private void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
         Set<org.apache.maven.artifact.Artifact> artifacts = this.project.getArtifacts();
 
@@ -424,7 +413,12 @@ public class ModuleFiller {
 
                     moduleName = moduleName.replace('/', '.');
 
-                    potentialModules.put(moduleName + ":" + slot, file);
+                    String key = moduleName + ":" + slot;
+                    if (potentialModules.containsKey(key)) {
+                        log.warn("Duplicate module '" + key + "': previously found in "
+                                + potentialModules.get(key) + ", but " + file + " will be used");
+                    }
+                    potentialModules.put(key, file);
                 }
             }
         }
