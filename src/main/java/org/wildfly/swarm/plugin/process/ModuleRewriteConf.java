@@ -20,17 +20,23 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.maven.project.MavenProject;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
 
 /**
  * @author Bob McWhirter
  */
 public class ModuleRewriteConf {
+    private final MavenProject project;
 
-    public ModuleRewriteConf(Path baseDir) throws IOException {
+    public ModuleRewriteConf(MavenProject project) throws IOException {
+        this.project = project;
+
+        Path baseDir = Paths.get(project.getBasedir().getAbsolutePath());
         while (baseDir != null) {
             Path file = baseDir.resolve("module-rewrite.conf");
             if (Files.exists(file)) {
@@ -152,6 +158,18 @@ public class ModuleRewriteConf {
                 } else if (line.startsWith(REMOVE_ARTIFACT)) {
                     String pattern = line.substring(REMOVE_ARTIFACT.length()).trim();
                     current.removeArtifact(pattern);
+                } else if (line.startsWith(FORCE_ARTIFACT_VERSION)) {
+                    String[] parts = line.substring(FORCE_ARTIFACT_VERSION.length()).trim().split("=");
+                    ModuleXmlArtifact artifact = ModuleXmlArtifact.parse(parts[0].trim());
+                    String newVersion = parts[1].trim();
+                    if (newVersion.startsWith("${") && newVersion.endsWith("}")) {
+                        String property = newVersion.substring(2, newVersion.length() - 1);
+                        newVersion = project.getProperties().getProperty(property);
+                        if (newVersion == null) {
+                            throw new IllegalArgumentException("Missing Maven property '" + property + "' for rewriting artifact " + artifact);
+                        }
+                    }
+                    current.forceArtifactVersion(artifact, newVersion);
                 } else {
                     System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
@@ -170,6 +188,8 @@ public class ModuleRewriteConf {
     private static final String REPLACE = "replace:";
 
     private static final String REMOVE_ARTIFACT = "remove-artifact:";
+
+    private static final String FORCE_ARTIFACT_VERSION = "force-artifact-version:";
 
     private static final String MAIN = "main";
 
