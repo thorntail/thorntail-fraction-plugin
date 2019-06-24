@@ -62,6 +62,10 @@ public class ModuleRewriteRules {
         this.rules.add(new ForceArtifactVersion(expectedArtifact, newVersion));
     }
 
+    void replaceArtifact(ModuleXmlArtifact expectedArtifact, ModuleXmlArtifact newArtifact) {
+        this.rules.add(new ReplaceArtifact(expectedArtifact, newArtifact));
+    }
+
     ModuleDescriptor rewrite(ModuleDescriptor desc) {
         for (Rule rule : this.rules) {
             rule.rewrite(desc);
@@ -244,6 +248,32 @@ public class ModuleRewriteRules {
                 ModuleXmlArtifact presentArtifact = ModuleXmlArtifact.parse(artifact.getName());
                 if (expectedArtifact.equalsIgnoringVersion(presentArtifact)) {
                     artifact.name(presentArtifact.withVersion(newVersion).toString());
+                }
+            }
+        }
+    }
+
+    private static class ReplaceArtifact extends Rule {
+        private final ModuleXmlArtifact expectedArtifact; // version part is ignored
+        private final ModuleXmlArtifact newArtifact;
+
+        ReplaceArtifact(ModuleXmlArtifact expectedArtifact, ModuleXmlArtifact newArtifact) {
+            this.expectedArtifact = expectedArtifact;
+            this.newArtifact = newArtifact;
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            if (noResources(desc)) {
+                return;
+            }
+
+            ResourcesType<ModuleDescriptor> resources = desc.getOrCreateResources();
+            List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = resources.getAllArtifact();
+            for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
+                ModuleXmlArtifact presentArtifact = ModuleXmlArtifact.parse(artifact.getName());
+                if (expectedArtifact.equalsIgnoringVersion(presentArtifact)) {
+                    artifact.name(newArtifact.toString());
                 }
             }
         }

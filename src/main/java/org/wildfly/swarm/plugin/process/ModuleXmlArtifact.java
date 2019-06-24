@@ -61,6 +61,10 @@ public class ModuleXmlArtifact {
                 && Objects.equals(this.classifier, that.classifier);
     }
 
+    public String getVersion() {
+        return version;
+    }
+
     public ModuleXmlArtifact withVersion(String version) {
         return new ModuleXmlArtifact(groupId, artifactId, version, classifier);
     }

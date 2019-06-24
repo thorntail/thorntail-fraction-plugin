@@ -170,6 +170,17 @@ public class ModuleRewriteConf {
                         }
                     }
                     current.forceArtifactVersion(artifact, newVersion);
+                } else if (line.startsWith(REPLACE_ARTIFACT)) {
+                    String[] parts = line.substring(REPLACE_ARTIFACT.length()).trim().split(">");
+                    ModuleXmlArtifact expectedArtifact = ModuleXmlArtifact.parse(parts[0].trim());
+                    ModuleXmlArtifact newArtifact = ModuleXmlArtifact.parse(parts[1].trim());
+                    String newArtifactVersion = newArtifact.getVersion();
+                    if (newArtifactVersion.startsWith("${")) {
+                        String property = newArtifactVersion.substring(2, newArtifactVersion.length() - 1);
+                        newArtifactVersion = project.getProperties().getProperty(property);
+                        newArtifact = newArtifact.withVersion(newArtifactVersion);
+                    }
+                    current.replaceArtifact(expectedArtifact, newArtifact);
                 } else {
                     System.err.println(lineNumber + ": lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
@@ -190,6 +201,8 @@ public class ModuleRewriteConf {
     private static final String REMOVE_ARTIFACT = "remove-artifact:";
 
     private static final String FORCE_ARTIFACT_VERSION = "force-artifact-version:";
+
+    private static final String REPLACE_ARTIFACT = "replace-artifact:";
 
     private static final String MAIN = "main";
 
