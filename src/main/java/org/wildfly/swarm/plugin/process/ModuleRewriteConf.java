@@ -82,7 +82,7 @@ public class ModuleRewriteConf {
             while ((line = in.readLine()) != null) {
                 ++lineNumber;
                 line = line.trim();
-                if (line.isEmpty()) {
+                if (line.isEmpty() || line.startsWith("#")) {
                     continue;
                 }
                 if (line.startsWith(REPLACE)) {
@@ -171,7 +171,7 @@ public class ModuleRewriteConf {
                     }
                     current.forceArtifactVersion(artifact, newVersion);
                 } else {
-                    System.err.println(lineNumber + ":Lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
+                    System.err.println(lineNumber + ": lines should be blank or start with " + MODULE + ", " + INCLUDE + ", " + EXPORT + " or " + OPTIONAL + " - " + line);
                 }
             }
         }
