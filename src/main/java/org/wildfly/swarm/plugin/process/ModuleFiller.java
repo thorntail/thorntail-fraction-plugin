@@ -44,6 +44,7 @@ import java.util.jar.JarFile;
 import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -153,7 +154,13 @@ public class ModuleFiller {
 
             this.log.info(this.project.getArtifactId() + ": total size:  " + sizeStr);
         } catch (IOException e) {
-            throw new MojoExecutionException("Failed collecting module dependencies of " + meta + ", check feature pack ZIPs", e);
+            String resourceDirs = project.getResources()
+                    .stream()
+                    .map(Resource::getDirectory)
+                    .collect(Collectors.joining(", "));
+            throw new MojoExecutionException("Failed collecting module dependencies of " + meta
+                    + ", check feature pack ZIP dependencies declared in " + project.getFile()
+                    + " and module.xml files declared in " + resourceDirs, e);
         }
 
         return meta;
@@ -169,30 +176,30 @@ public class ModuleFiller {
                 break;
             }
 
-            Set<File> relevantFiles = new HashSet<>();
+            Set<File> featurePackZips = new HashSet<>();
             for (String each : fillModules) {
-                File file = potentialModules.get(each);
-                if (file == null) {
-                    throw new IOException("Unable to locate required module: " + each);
+                File featurePackZip = potentialModules.get(each);
+                if (featurePackZip == null) {
+                    throw new IOException("Unable to locate feature pack ZIP for module " + each);
                 }
-                relevantFiles.add(file);
+                featurePackZips.add(featurePackZip);
             }
 
-            addFillModules(fillModules, relevantFiles, requiredModules, availableModules);
+            addFillModules(fillModules, featurePackZips, requiredModules, availableModules);
         }
     }
 
-    private void addFillModules(Set<String> fillModules, Set<File> relevantFiles, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
-        for (File each : relevantFiles) {
-            addFillModules(fillModules, each, requiredModules, availableModules);
+    private void addFillModules(Set<String> fillModules, Set<File> featurePackZips, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
+        for (File featurePackZip : featurePackZips) {
+            addFillModules(fillModules, featurePackZip, requiredModules, availableModules);
         }
     }
 
-    private void addFillModules(Set<String> fillModules, File file, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
+    private void addFillModules(Set<String> fillModules, File featurePackZip, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         Map<String, ZipEntry> moduleXmls = new HashMap<>();
         ZipEntry featurePackXml = null;
 
-        try (ZipFile zip = new ZipFile(file)) {
+        try (ZipFile zip = new ZipFile(featurePackZip)) {
             Enumeration<? extends ZipEntry> entries = zip.entries();
 
             while (entries.hasMoreElements()) {
@@ -226,7 +233,7 @@ public class ModuleFiller {
             }
 
             if (featurePackXml == null) {
-                throw new MojoExecutionException("Unable to find wildfly-feature-pack.xml in " + file);
+                throw new MojoExecutionException("Unable to find wildfly-feature-pack.xml in " + featurePackZip);
             }
 
             Map<String, Artifact> artifacts = processFeaturePackXml(zip.getInputStream(featurePackXml));

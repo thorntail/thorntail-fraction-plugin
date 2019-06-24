@@ -26,6 +26,9 @@ import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDependencyType;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ModuleDescriptor;
 import org.jboss.shrinkwrap.descriptor.api.jbossmodule13.ResourcesType;
 
+import static org.wildfly.swarm.plugin.utils.DescriptorUtils.noDependencies;
+import static org.wildfly.swarm.plugin.utils.DescriptorUtils.noResources;
+
 /**
  * @author Bob McWhirter
  */
@@ -59,6 +62,10 @@ public class ModuleRewriteRules {
         this.rules.add(new ForceArtifactVersion(expectedArtifact, newVersion));
     }
 
+    void replaceArtifact(ModuleXmlArtifact expectedArtifact, ModuleXmlArtifact newArtifact) {
+        this.rules.add(new ReplaceArtifact(expectedArtifact, newArtifact));
+    }
+
     ModuleDescriptor rewrite(ModuleDescriptor desc) {
         for (Rule rule : this.rules) {
             rule.rewrite(desc);
@@ -81,6 +88,10 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noDependencies(desc)) {
+                return;
+            }
+
             DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
             // If module dependency already exists, ignore
             if (dependencies.getAllModule().stream()
@@ -104,6 +115,10 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noDependencies(desc)) {
+                return;
+            }
+
             DependenciesType<ModuleDescriptor> dependencies = desc.getOrCreateDependencies();
             dependencies.getAllModule().stream()
                     .filter(d -> name.equals(d.getName()))
@@ -125,6 +140,10 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noDependencies(desc)) {
+                return;
+            }
+
             List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> deps = desc.getOrCreateDependencies().getAllModule();
             for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> each : deps) {
                 String depName = each.getName();
@@ -164,6 +183,10 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noDependencies(desc)) {
+                return;
+            }
+
             List<ModuleDependencyType<DependenciesType<ModuleDescriptor>>> deps = desc.getOrCreateDependencies().getAllModule();
             for (ModuleDependencyType<DependenciesType<ModuleDescriptor>> each : deps) {
                 String depName = each.getName();
@@ -189,6 +212,10 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noResources(desc)) {
+                return;
+            }
+
             ResourcesType<ModuleDescriptor> resources = desc.getOrCreateResources();
             List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = resources.getAllArtifact();
             resources.removeAllArtifact();
@@ -211,12 +238,42 @@ public class ModuleRewriteRules {
 
         @Override
         public void rewrite(ModuleDescriptor desc) {
+            if (noResources(desc)) {
+                return;
+            }
+
             ResourcesType<ModuleDescriptor> resources = desc.getOrCreateResources();
             List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = resources.getAllArtifact();
             for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
                 ModuleXmlArtifact presentArtifact = ModuleXmlArtifact.parse(artifact.getName());
                 if (expectedArtifact.equalsIgnoringVersion(presentArtifact)) {
                     artifact.name(presentArtifact.withVersion(newVersion).toString());
+                }
+            }
+        }
+    }
+
+    private static class ReplaceArtifact extends Rule {
+        private final ModuleXmlArtifact expectedArtifact; // version part is ignored
+        private final ModuleXmlArtifact newArtifact;
+
+        ReplaceArtifact(ModuleXmlArtifact expectedArtifact, ModuleXmlArtifact newArtifact) {
+            this.expectedArtifact = expectedArtifact;
+            this.newArtifact = newArtifact;
+        }
+
+        @Override
+        public void rewrite(ModuleDescriptor desc) {
+            if (noResources(desc)) {
+                return;
+            }
+
+            ResourcesType<ModuleDescriptor> resources = desc.getOrCreateResources();
+            List<ArtifactType<ResourcesType<ModuleDescriptor>>> artifacts = resources.getAllArtifact();
+            for (ArtifactType<ResourcesType<ModuleDescriptor>> artifact : artifacts) {
+                ModuleXmlArtifact presentArtifact = ModuleXmlArtifact.parse(artifact.getName());
+                if (expectedArtifact.equalsIgnoringVersion(presentArtifact)) {
+                    artifact.name(newArtifact.toString());
                 }
             }
         }

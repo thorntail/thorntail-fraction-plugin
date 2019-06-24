@@ -9,7 +9,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Maven artifact coordinates in the JBoss Modules style ({@code groupId:artifactId:version[:coordinates]}).
+ * Maven artifact coordinates in the JBoss Modules style ({@code groupId:artifactId:version[:classifier]}).
  * See {@code org.jboss.modules.maven.ArtifactCoordinates}.
  */
 public class ModuleXmlArtifact {
@@ -38,7 +38,7 @@ public class ModuleXmlArtifact {
             return new ModuleXmlArtifact(parts.get(0), parts.get(1), parts.get(2), parts.get(3));
         } else {
             throw new IllegalArgumentException("Invalid artifact specifier '" + string
-                    + "', expected groupId:artifactId[:version[:classifier]]");
+                    + "', expected groupId:artifactId:version[:classifier]");
         }
     }
 
@@ -59,6 +59,10 @@ public class ModuleXmlArtifact {
         return Objects.equals(this.groupId, that.groupId)
                 && Objects.equals(this.artifactId, that.artifactId)
                 && Objects.equals(this.classifier, that.classifier);
+    }
+
+    public String getVersion() {
+        return version;
     }
 
     public ModuleXmlArtifact withVersion(String version) {
