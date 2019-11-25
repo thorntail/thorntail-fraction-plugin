@@ -26,8 +26,9 @@
     <maven.compiler.source>1.8</maven.compiler.source>
     <version.org.jboss.shrinkwrap>1.2.6</version.org.jboss.shrinkwrap>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0</version.org.jboss.shrinkwrap.descriptors>
-    <version.jackson>2.9.5</version.jackson>
-    <version.jandex>2.0.5.Final</version.jandex>
+    <version.jackson>2.9.10</version.jackson>
+    <version.jackson-databind>2.9.10.1</version.jackson-databind>
+    <version.jandex>2.1.1.Final</version.jandex>
     <version.org.snakeyaml>1.18</version.org.snakeyaml>
     <version.junit>4.12</version.junit>
 
@@ -109,7 +110,7 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>${version.jackson}</version>
+      <version>${version.jackson-databind}</version>
     </dependency>
 
     <dependency>
