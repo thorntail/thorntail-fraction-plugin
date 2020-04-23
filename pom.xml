@@ -27,7 +27,7 @@
     <version.org.jboss.shrinkwrap>1.2.6</version.org.jboss.shrinkwrap>
     <version.org.jboss.shrinkwrap.descriptors>2.0.0</version.org.jboss.shrinkwrap.descriptors>
     <version.jackson>2.9.10</version.jackson>
-    <version.jackson-databind>2.9.10.3</version.jackson-databind>
+    <version.jackson-databind>2.9.10.4</version.jackson-databind>
     <version.jandex>2.1.1.Final</version.jandex>
     <version.org.snakeyaml>1.18</version.org.snakeyaml>
     <version.junit>4.12</version.junit>
