@@ -31,6 +31,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -111,14 +112,13 @@ public class ModuleFiller {
             walkProjectModules(requiredModules, availableModules);
             walkDependencyModules(availableModules);
 
-            Map<String, File> potentialModules = new HashMap<>();
-            indexPotentialModules(potentialModules);
+            List<File> featurePackZips = findFeaturePackZips();
 
             if (requiredModules.isEmpty()) {
                 return meta;
             }
 
-            locateFillModules(potentialModules, requiredModules, availableModules);
+            locateFillModules(requiredModules, availableModules, featurePackZips);
 
             DecimalFormat fmt = new DecimalFormat("###0.00", new DecimalFormatSymbols(Locale.US));
             double bytesInMegabyte = 1024.0 * 1024.0;
@@ -166,7 +166,7 @@ public class ModuleFiller {
         return meta;
     }
 
-    private void locateFillModules(Map<String, File> potentialModules, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
+    private void locateFillModules(Set<String> requiredModules, Set<String> availableModules, List<File> featurePackZips) throws IOException, MojoExecutionException {
         while (true) {
             Set<String> fillModules = new FilteringHashSet<>(noPlatformModules);
             fillModules.addAll(requiredModules);
@@ -176,20 +176,11 @@ public class ModuleFiller {
                 break;
             }
 
-            Set<File> featurePackZips = new HashSet<>();
-            for (String each : fillModules) {
-                File featurePackZip = potentialModules.get(each);
-                if (featurePackZip == null) {
-                    throw new IOException("Unable to locate feature pack ZIP for module " + each);
-                }
-                featurePackZips.add(featurePackZip);
-            }
-
             addFillModules(fillModules, featurePackZips, requiredModules, availableModules);
         }
     }
 
-    private void addFillModules(Set<String> fillModules, Set<File> featurePackZips, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
+    private void addFillModules(Set<String> fillModules, List<File> featurePackZips, Set<String> requiredModules, Set<String> availableModules) throws IOException, MojoExecutionException {
         for (File featurePackZip : featurePackZips) {
             addFillModules(fillModules, featurePackZip, requiredModules, availableModules);
         }
@@ -387,48 +378,18 @@ public class ModuleFiller {
         return artifacts;
     }
 
-    private void indexPotentialModules(Map<String, File> potentialModules) throws IOException {
+    private List<File> findFeaturePackZips() {
+        List<File> featurePackZips = new ArrayList<>();
+
         Set<org.apache.maven.artifact.Artifact> artifacts = this.project.getArtifacts();
-
-        for (org.apache.maven.artifact.Artifact each : artifacts) {
-            if (each.getType().equals("zip")) {
-                indexPotentialModules(each.getFile(), potentialModules);
+        for (org.apache.maven.artifact.Artifact artifact : artifacts) {
+            if (artifact.getType().equals("zip")) {
+                File featurePackZip = artifact.getFile();
+                featurePackZips.add(featurePackZip);
             }
         }
-    }
 
-    private void indexPotentialModules(File file, Map<String, File> potentialModules) throws IOException {
-        try (ZipFile zip = new ZipFile(file)) {
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry each = entries.nextElement();
-                String name = each.getName();
-                String coreName = null;
-                if (name.startsWith(MODULES_SYSTEM_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    coreName = name.substring(MODULES_SYSTEM_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
-                    coreName = coreName.substring(coreName.indexOf('/') + 1);
-                    coreName = coreName.substring(coreName.indexOf('/') + 1);
-                } else if (name.startsWith(MODULES_PREFIX) && name.endsWith(MODULES_SUFFIX)) {
-                    coreName = name.substring(MODULES_PREFIX.length(), name.length() - MODULES_SUFFIX.length());
-                }
-
-                if (coreName != null) {
-                    int lastSlashLoc = coreName.lastIndexOf('/');
-
-                    String moduleName = coreName.substring(0, lastSlashLoc);
-                    String slot = coreName.substring(lastSlashLoc + 1);
-
-                    moduleName = moduleName.replace('/', '.');
-
-                    String key = moduleName + ":" + slot;
-                    if (potentialModules.containsKey(key)) {
-                        log.warn("Duplicate module '" + key + "': previously found in "
-                                + potentialModules.get(key) + ", but " + file + " will be used");
-                    }
-                    potentialModules.put(key, file);
-                }
-            }
-        }
+        return featurePackZips;
     }
 
     private void walkProjectModules(final Set<String> requiredModules, final Set<String> availableModules) throws IOException {
