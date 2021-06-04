@@ -29,7 +29,7 @@
     <version.jackson>2.9.10</version.jackson>
     <version.jackson-databind>2.10.5.1</version.jackson-databind>
     <version.jandex>2.1.1.Final</version.jandex>
-    <version.org.snakeyaml>1.18</version.org.snakeyaml>
+    <version.org.snakeyaml>1.26</version.org.snakeyaml>
     <version.junit>4.13.1</version.junit>
 
     <version.wildfly.swarm.checkstyle>3</version.wildfly.swarm.checkstyle>
